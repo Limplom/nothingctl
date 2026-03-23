@@ -1,0 +1,60 @@
+{
+  "_comment": "Edit freely — add, remove, or reorder entries. Use --debloat to list status.",
+  "_restore": "adb shell pm install-existing --user 0 <package>",
+  "_categories": {
+    "social":   "Social media / advertising SDKs",
+    "nothing":  "Nothing-specific optional apps",
+    "util":     "Pre-installed utilities"
+  },
+  "packages": [
+    {
+      "id":       "facebook",
+      "package":  "com.facebook.katana",
+      "name":     "Facebook",
+      "category": "social",
+      "notes":    "Main Facebook app"
+    },
+    {
+      "id":       "facebook-services",
+      "package":  "com.facebook.services",
+      "name":     "Facebook Services",
+      "category": "social",
+      "notes":    "Facebook background services (auto-restarts other FB apps)"
+    },
+    {
+      "id":       "facebook-appmanager",
+      "package":  "com.facebook.appmanager",
+      "name":     "Facebook App Manager",
+      "category": "social",
+      "notes":    "Silently downloads/updates Facebook apps"
+    },
+    {
+      "id":       "facebook-system",
+      "package":  "com.facebook.system",
+      "name":     "Facebook System Service",
+      "category": "social",
+      "notes":    "System-level Facebook persistence"
+    },
+    {
+      "id":       "linkedin",
+      "package":  "com.linkedin.android",
+      "name":     "LinkedIn",
+      "category": "social",
+      "notes":    "Professional network app"
+    },
+    {
+      "id":       "nothing-news",
+      "package":  "ly.nothing.news",
+      "name":     "Nothing News",
+      "category": "nothing",
+      "notes":    "Nothing news/feed widget — removable if unused"
+    },
+    {
+      "id":       "nothing-community",
+      "package":  "community.nothing.phone",
+      "name":     "Nothing Community",
+      "category": "nothing",
+      "notes":    "Nothing forum app"
+    }
+  ]
+}

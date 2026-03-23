@@ -1,0 +1,102 @@
+{
+  "_comment": "Recommended Magisk modules for Nothing devices. Edit freely — add, remove, or reorder entries.",
+  "_fields": {
+    "id":              "unique key used with --install (e.g. --install lsposed,shamiko)",
+    "name":            "display name",
+    "description":     "one-line description shown in --modules list",
+    "category":        "framework | privacy | utility | apps",
+    "source":          "github = auto-download from GitHub releases | ksu_store = manual (link in notes)",
+    "install_type":    "zip = Magisk module | apk = sideload APK",
+    "repo":            "GitHub owner/repo (null for ksu_store)",
+    "asset_pattern":   "regex matched against release asset filenames",
+    "requires_zygisk": "true if Zygisk must be enabled in Magisk settings",
+    "use_prerelease":  "true for repos that publish only pre-releases (e.g. PlayIntegrityFix)",
+    "notes":           "extra info shown after install (setup steps, warnings, etc.)"
+  },
+  "modules": [
+    {
+      "id": "lsposed",
+      "name": "LSPosed",
+      "description": "Xposed framework for Android 8.1+ — per-app system hooks, foundation for DisableFlagSecure and many other modules.",
+      "category": "framework",
+      "source": "github",
+      "install_type": "zip",
+      "repo": "JingMatrix/LSPosed",
+      "asset_pattern": "LSPosed-v[\\d.]+-[\\da-f]+-zygisk-release\\.zip",
+      "requires_zygisk": true,
+      "notes": "Enable Zygisk in Magisk settings first"
+    },
+    {
+      "id": "zygisk-next",
+      "name": "ZygiskNext",
+      "description": "Standalone Zygisk for KernelSU and APatch — enables all Zygisk-dependent modules without Magisk.",
+      "category": "framework",
+      "source": "github",
+      "install_type": "zip",
+      "repo": "Dr-TSNG/ZygiskNext",
+      "asset_pattern": "Zygisk-Next-.*-release\\.zip",
+      "requires_zygisk": false,
+      "notes": "Only needed on KernelSU/APatch — Magisk has Zygisk built-in"
+    },
+    {
+      "id": "zygisk-su",
+      "name": "ZygiskSU",
+      "description": "su binaries via Zygisk for KernelSU — provides Magisk-style root access for apps on KernelSU.",
+      "category": "framework",
+      "source": "ksu_store",
+      "install_type": "zip",
+      "repo": null,
+      "asset_pattern": "",
+      "requires_zygisk": true,
+      "notes": "Install via KernelSU Manager → Modules → Explore → search 'zygisksu'"
+    },
+    {
+      "id": "shamiko",
+      "name": "Shamiko",
+      "description": "Hides root, Zygisk, and module list from apps — works with Magisk DenyList. Essential for banking apps and Google Wallet.",
+      "category": "privacy",
+      "source": "github",
+      "install_type": "zip",
+      "repo": "LSPosed/LSPosed.github.io",
+      "asset_pattern": "Shamiko-v[\\d.]+-[\\d]+-release\\.zip",
+      "requires_zygisk": true,
+      "notes": "Configure Magisk DenyList after install"
+    },
+    {
+      "id": "play-integrity-fix",
+      "name": "Play Integrity Fix",
+      "description": "Spoof device to pass Play Integrity API checks — required for Google Wallet, banking apps, and Widevine L1 streaming.",
+      "category": "privacy",
+      "source": "github",
+      "install_type": "zip",
+      "repo": "osm0sis/PlayIntegrityFork",
+      "asset_pattern": "PlayIntegrityFork-v[\\d]+\\.zip",
+      "requires_zygisk": false,
+      "notes": "Pair with Shamiko for full root concealment"
+    },
+    {
+      "id": "disable-flag-secure",
+      "name": "DisableFlagSecure",
+      "description": "Removes FLAG_SECURE from all apps — enables screenshots and screen recording in banking, streaming, and DRM-protected apps.",
+      "category": "utility",
+      "source": "github",
+      "install_type": "zip",
+      "repo": "LSPosed/DisableFlagSecure",
+      "asset_pattern": "DisableFlagSecure.*\\.zip",
+      "requires_zygisk": true,
+      "notes": "LSPosed module — requires LSPosed installed and activated for the target app"
+    },
+    {
+      "id": "revanced",
+      "name": "ReVanced Extended (YouTube)",
+      "description": "Patched YouTube with ad blocking, SponsorBlock, Return YouTube Dislike, and 50+ additional tweaks.",
+      "category": "apps",
+      "source": "github",
+      "install_type": "apk",
+      "repo": "NoName-exe/revanced-extended",
+      "asset_pattern": "(?i)youtube.*\\.apk",
+      "requires_zygisk": false,
+      "notes": "Uninstall stock YouTube first: adb uninstall com.google.android.youtube"
+    }
+  ]
+}
