@@ -70,12 +70,19 @@ from .diagnostics import action_anr_dump, action_bugreport, action_logcat
 from .glyph import action_glyph, action_glyph_pattern
 from .history import action_history, log_flash
 from .info import action_info
+from .appmanager import action_app_info, action_kill_app, action_launch_app, action_package_list
+from .devoptions import action_dev_options, action_screen_always_on
+from .glyphnotify import action_glyph_notify
+from .inputctl import action_input
+from .network import action_network_info, action_dns_set, action_port_forward
+from .nothingsettings import action_nothing_settings, action_essential_space
 from .performance import action_performance
 from .permissions import action_permissions
 from .prop import action_prop_get, action_prop_set
 from .reboot import action_reboot
 from .sideload import action_sideload
 from .storage import action_apk_extract, action_storage_report
+from .sysmon import action_memory, action_cpu_usage
 from .thermal import action_thermal
 from .wifi_adb import action_wifi_adb, action_adb_pair
 from .device import (
@@ -367,6 +374,40 @@ def main():
     parser.add_argument("--pattern",        metavar="PATTERN",
                         help="Glyph pattern name for --glyph-pattern "
                              "(test, off, pulse, blink, wave)")
+    parser.add_argument("--provider",       metavar="HOSTNAME|ALIAS",
+                        help="DNS provider for --dns-set (off, cloudflare, adguard, google, quad9, or hostname)")
+    parser.add_argument("--local",          metavar="PORT",
+                        help="Local port for --port-forward")
+    parser.add_argument("--remote",         metavar="PORT",
+                        help="Remote (device) port for --port-forward")
+    parser.add_argument("--clear",          action="store_true",
+                        help="Remove all port forwards (use with --port-forward)")
+    parser.add_argument("--clear-cache",    action="store_true",
+                        help="Also wipe app data when killing (use with --kill-app)")
+    parser.add_argument("--intent",         metavar="URI",
+                        help="Deep-link URI to launch (use with --launch-app)")
+    parser.add_argument("--format",         metavar="text|csv|json", default="text",
+                        help="Output format for --package-list (default: text)")
+    parser.add_argument("--output",         metavar="PATH",
+                        help="Save output to file (use with --package-list)")
+    parser.add_argument("--tap",            metavar="X,Y",
+                        help="Tap coordinates for --input (e.g. 540,1200)")
+    parser.add_argument("--swipe",          metavar="X1,Y1,X2,Y2[,MS]",
+                        help="Swipe coordinates for --input (e.g. 100,800,100,200)")
+    parser.add_argument("--text",           metavar="STRING",
+                        help="Text to type on device (use with --input)")
+    parser.add_argument("--keyevent",       metavar="CODE",
+                        help="Keycode name or number for --input (e.g. KEYCODE_HOME)")
+    parser.add_argument("--ns-key",         metavar="NS:KEY",
+                        help="Nothing setting key in namespace:key format (use with --nothing-settings)")
+    parser.add_argument("--ns-value",       metavar="VAL",
+                        help="Value to set (use with --nothing-settings and --ns-key)")
+    parser.add_argument("--essential-enable", action="store_true", default=None,
+                        help="Enable Essential Space (use with --essential-space)")
+    parser.add_argument("--no-essential-enable", dest="essential_enable", action="store_false",
+                        help="Disable Essential Space (use with --essential-space)")
+    parser.add_argument("--screen-on",      metavar="on|off",
+                        help="Set screen always-on: on / off (use with --screen-always-on)")
 
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--backup",         action="store_true",
@@ -456,6 +497,36 @@ def main():
                       help="Run a Glyph light pattern (use --pattern: test, off, pulse, blink, wave)")
     mode.add_argument("--fix-biometric",  action="store_true",
                       help="Force PIN/password auth instead of fingerprint (workaround for broken sensors)")
+    mode.add_argument("--network-info",   action="store_true",
+                      help="Show WiFi, DNS and mobile network info")
+    mode.add_argument("--dns-set",        action="store_true",
+                      help="Set Private DNS provider (use --provider; status if omitted)")
+    mode.add_argument("--port-forward",   action="store_true",
+                      help="Manage ADB port forwards (use --local/--remote to add, --clear to remove all)")
+    mode.add_argument("--app-info",       action="store_true",
+                      help="Show detailed info for an app (use --package)")
+    mode.add_argument("--kill-app",       action="store_true",
+                      help="Force-stop an app (use --package; --clear-cache to also wipe data)")
+    mode.add_argument("--launch-app",     action="store_true",
+                      help="Launch an app or deep link (use --package or --intent)")
+    mode.add_argument("--package-list",   action="store_true",
+                      help="List installed apps (use --format, --output, --include-system)")
+    mode.add_argument("--memory",         action="store_true",
+                      help="Show RAM usage (use --package for app detail, --watch for live mode)")
+    mode.add_argument("--cpu-usage",      action="store_true",
+                      help="Show CPU core frequencies and top processes (use --watch for live mode)")
+    mode.add_argument("--input",          action="store_true",
+                      help="Send input to device (use --tap, --swipe, --text, --keyevent)")
+    mode.add_argument("--dev-options",    action="store_true",
+                      help="Manage Developer Options (interactive menu, or --key/--value to set directly)")
+    mode.add_argument("--screen-always-on", action="store_true",
+                      help="Control stay-awake while charging (use --screen-on on|off; status if omitted)")
+    mode.add_argument("--nothing-settings", action="store_true",
+                      help="Read/write Nothing-specific settings (use --ns-key and --ns-value)")
+    mode.add_argument("--essential-space", action="store_true",
+                      help="Show or toggle Essential Space (Phone 2+; use --essential-enable/--no-essential-enable)")
+    mode.add_argument("--glyph-notify",   action="store_true",
+                      help="Show Glyph notification configuration and active services")
 
     args     = parser.parse_args()
     base_dir = Path(args.base_dir)
@@ -560,6 +631,47 @@ def main():
                 print("     Effect lasts until next reboot. Run again if needed after restart.")
             else:
                 raise AdbError(f"locksettings failed: {r.stderr.strip()}")
+        elif args.network_info:
+            action_network_info(device)
+        elif args.dns_set:
+            action_dns_set(device, args.provider)
+        elif args.port_forward:
+            action_port_forward(device, args.local, args.remote, args.clear)
+        elif args.app_info:
+            if not args.package:
+                raise AdbError("--app-info requires --package <PKG>")
+            action_app_info(device, args.package)
+        elif args.kill_app:
+            if not args.package:
+                raise AdbError("--kill-app requires --package <PKG>")
+            action_kill_app(device, args.package, args.clear_cache)
+        elif args.launch_app:
+            action_launch_app(device, args.package, args.intent)
+        elif args.package_list:
+            action_package_list(device, args.include_system, args.format, args.output)
+        elif args.memory:
+            action_memory(device, args.package, args.watch)
+        elif args.cpu_usage:
+            action_cpu_usage(device, args.top_n, args.watch)
+        elif args.input:
+            action_input(device, args.tap, args.swipe, args.text, args.keyevent)
+        elif args.dev_options:
+            action_dev_options(device, args.key, args.value)
+        elif args.screen_always_on:
+            enable = None
+            if args.screen_on is not None:
+                enable = args.screen_on.lower() in ("on", "1", "true")
+            action_screen_always_on(device, enable)
+        elif args.nothing_settings:
+            ns_key, ns_value = None, None
+            if args.ns_key:
+                parts = args.ns_key.split(":", 1)
+                ns_key = args.ns_key if len(parts) == 1 else args.ns_key
+            action_nothing_settings(device, args.ns_key, args.ns_value)
+        elif args.essential_space:
+            action_essential_space(device, args.essential_enable)
+        elif args.glyph_notify:
+            action_glyph_notify(device)
         elif args.install_magisk:
             print("Checking Magisk status...")
             ms = check_magisk(device.serial)
