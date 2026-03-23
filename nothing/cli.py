@@ -84,6 +84,13 @@ from .sideload import action_sideload
 from .storage import action_apk_extract, action_storage_report
 from .sysmon import action_memory, action_cpu_usage
 from .thermal import action_thermal
+from .batteryplus import action_battery_stats, action_charging_control
+from .display import action_display, action_color_profile
+from .audio import action_audio, action_audio_route
+from .wifimanager import action_wifi_scan, action_wifi_profiles
+from .maintenance import action_cache_clear, action_locale
+from .notifclip import action_notifications, action_clipboard
+from .procmon import action_process_tree, action_doze_status, action_location
 from .wifi_adb import action_wifi_adb, action_adb_pair
 from .device import (
     adb_pull, adb_push, confirm, detect_device,
@@ -408,6 +415,30 @@ def main():
                         help="Disable Essential Space (use with --essential-space)")
     parser.add_argument("--screen-on",      metavar="on|off",
                         help="Set screen always-on: on / off (use with --screen-always-on)")
+    parser.add_argument("--limit",          metavar="N", type=int,
+                        help="Charge limit percentage 20-100 (use with --charging-control; requires root to set)")
+    parser.add_argument("--stream",         metavar="NAME|N",
+                        help="Audio stream for --audio (voice/system/ring/media/alarm/notification, or 0-5)")
+    parser.add_argument("--volume",         metavar="N", type=int,
+                        help="Volume level to set (use with --audio and --stream)")
+    parser.add_argument("--forget",         metavar="SSID|ID",
+                        help="Network SSID or ID to forget (use with --wifi-profiles)")
+    parser.add_argument("--lang",           metavar="LOCALE",
+                        help="Locale to set, e.g. de-DE or en-US (use with --locale)")
+    parser.add_argument("--timezone",       metavar="TZ",
+                        help="Timezone to set, e.g. Europe/Berlin (use with --locale)")
+    parser.add_argument("--hour24",         action="store_true", default=None,
+                        help="Enable 24h time format (use with --locale)")
+    parser.add_argument("--no-hour24",      dest="hour24", action="store_false",
+                        help="Enable 12h time format (use with --locale)")
+    parser.add_argument("--whitelist-add",  metavar="PKG",
+                        help="Add package to Doze whitelist (use with --doze-status)")
+    parser.add_argument("--whitelist-remove", metavar="PKG",
+                        help="Remove package from Doze whitelist (use with --doze-status)")
+    parser.add_argument("--mode",           metavar="MODE",
+                        help="Mode to set: location (off/gps/battery/on) or color profile (natural/vivid/custom)")
+    parser.add_argument("--clip-text",      metavar="TEXT",
+                        help="Text to write to clipboard (use with --clipboard)")
 
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--backup",         action="store_true",
@@ -527,6 +558,36 @@ def main():
                       help="Show or toggle Essential Space (Phone 2+; use --essential-enable/--no-essential-enable)")
     mode.add_argument("--glyph-notify",   action="store_true",
                       help="Show Glyph notification configuration and active services")
+    mode.add_argument("--battery-stats",  action="store_true",
+                      help="Show per-app battery drain, wakelock stats, and charge cycle count")
+    mode.add_argument("--charging-control", action="store_true",
+                      help="Read or set charge limit threshold via sysfs (use --limit N; requires root to set)")
+    mode.add_argument("--display",        action="store_true",
+                      help="Show or set display settings (use --key/--value; keys: brightness/dpi/timeout/rotation/font_scale)")
+    mode.add_argument("--color-profile",  action="store_true",
+                      help="Show or set display color profile (use --mode: natural/vivid/custom)")
+    mode.add_argument("--audio",          action="store_true",
+                      help="Show or set audio stream volumes (use --stream and --volume)")
+    mode.add_argument("--audio-route",    action="store_true",
+                      help="Show active audio output path and connected Bluetooth devices")
+    mode.add_argument("--wifi-scan",      action="store_true",
+                      help="Scan and list nearby WiFi networks sorted by signal strength")
+    mode.add_argument("--wifi-profiles",  action="store_true",
+                      help="List or forget saved WiFi networks (use --forget SSID/ID)")
+    mode.add_argument("--cache-clear",    action="store_true",
+                      help="Clear app caches system-wide (use --package for single app)")
+    mode.add_argument("--locale",         action="store_true",
+                      help="Show or set locale, timezone, time format (use --lang, --timezone, --hour24)")
+    mode.add_argument("--notifications",  action="store_true",
+                      help="List active notifications (use --package to filter by app)")
+    mode.add_argument("--clipboard",      action="store_true",
+                      help="Read or set clipboard content (use --clip-text to write)")
+    mode.add_argument("--process-tree",   action="store_true",
+                      help="Show process list with UID/PID/state (use --package to filter)")
+    mode.add_argument("--doze-status",    action="store_true",
+                      help="Show Doze mode status and whitelist (use --whitelist-add/--whitelist-remove)")
+    mode.add_argument("--location",       action="store_true",
+                      help="Show or set location mode (use --mode: off/gps/battery/on)")
 
     args     = parser.parse_args()
     base_dir = Path(args.base_dir)
@@ -672,6 +733,36 @@ def main():
             action_essential_space(device, args.essential_enable)
         elif args.glyph_notify:
             action_glyph_notify(device)
+        elif args.battery_stats:
+            action_battery_stats(device)
+        elif args.charging_control:
+            action_charging_control(device, args.limit)
+        elif args.display:
+            action_display(device, args.key, args.value)
+        elif args.color_profile:
+            action_color_profile(device, args.mode)
+        elif args.audio:
+            action_audio(device, args.stream, args.volume)
+        elif args.audio_route:
+            action_audio_route(device)
+        elif args.wifi_scan:
+            action_wifi_scan(device)
+        elif args.wifi_profiles:
+            action_wifi_profiles(device, args.forget)
+        elif args.cache_clear:
+            action_cache_clear(device, args.package)
+        elif args.locale:
+            action_locale(device, args.lang, args.timezone, args.hour24)
+        elif args.notifications:
+            action_notifications(device, args.package)
+        elif args.clipboard:
+            action_clipboard(device, args.clip_text)
+        elif args.process_tree:
+            action_process_tree(device, args.package)
+        elif args.doze_status:
+            action_doze_status(device, args.whitelist_add, args.whitelist_remove)
+        elif args.location:
+            action_location(device, args.mode)
         elif args.install_magisk:
             print("Checking Magisk status...")
             ms = check_magisk(device.serial)
