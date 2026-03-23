@@ -2,6 +2,7 @@
 
 import json
 import re
+from enum import Enum
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -11,6 +12,85 @@ from .firmware import download_file, USER_AGENT
 from .models import DeviceInfo, MagiskStatus
 
 MAGISK_API = "https://api.github.com/repos/topjohnwu/Magisk/releases/latest"
+
+
+# ---------------------------------------------------------------------------
+# Root manager detection
+# ---------------------------------------------------------------------------
+
+class RootManager(Enum):
+    NONE     = "none"
+    MAGISK   = "magisk"
+    KERNELSU = "kernelsu"
+    APATCH   = "apatch"
+
+
+def detect_root_manager(serial: str) -> RootManager:
+    """Detect which root manager (if any) is active on the device."""
+    # Check KernelSU: ksud binary or ksud service
+    r = run(["adb", "-s", serial, "shell", "which ksud 2>/dev/null || ls /data/adb/ksud 2>/dev/null"],
+            check=False)
+    if r.returncode == 0 and r.stdout.strip():
+        return RootManager.KERNELSU
+
+    # Check APatch
+    r = run(["adb", "-s", serial, "shell", "which apd 2>/dev/null"], check=False)
+    if r.returncode == 0 and r.stdout.strip():
+        return RootManager.APATCH
+
+    # Check Magisk daemon
+    r = run(["adb", "-s", serial, "shell", "su -c 'magisk -V 2>/dev/null'"], check=False)
+    if r.returncode == 0 and r.stdout.strip().isdigit():
+        return RootManager.MAGISK
+
+    return RootManager.NONE
+
+
+def check_kernelsu(serial: str) -> dict:
+    """Return dict with keys: installed, version, manager_app_installed."""
+    result: dict = {"installed": False, "version": None, "manager_app": False}
+
+    # KernelSU version via ksud
+    r = run(["adb", "-s", serial, "shell", "su -c 'ksud --version 2>/dev/null'"], check=False)
+    if r.returncode == 0 and r.stdout.strip():
+        result["installed"] = True
+        result["version"] = r.stdout.strip()
+
+    # Manager app
+    r = run(["adb", "-s", serial, "shell", "pm list packages me.weishu.kernelsu"], check=False)
+    result["manager_app"] = "me.weishu.kernelsu" in r.stdout
+
+    return result
+
+
+def has_root(serial: str) -> bool:
+    """Return True if any root manager (Magisk, KernelSU, APatch) is active."""
+    r = run(["adb", "-s", serial, "shell", "su -c id"], check=False)
+    return r.returncode == 0 and "uid=0" in r.stdout
+
+
+def print_root_status(serial: str) -> None:
+    """Detect the active root manager and print its status."""
+    manager = detect_root_manager(serial)
+
+    if manager == RootManager.MAGISK:
+        ms = check_magisk(serial)
+        print_magisk_status(ms)
+
+    elif manager == RootManager.KERNELSU:
+        ksu = check_kernelsu(serial)
+        version_str = ksu["version"] if ksu["version"] else "unknown"
+        app_str = "installed" if ksu["manager_app"] else "not installed"
+        print(f"\n  Root manager : KernelSU")
+        print(f"  Version      : {version_str}")
+        print(f"  Manager app  : {app_str}")
+
+    elif manager == RootManager.APATCH:
+        print(f"\n  Root manager : APatch")
+        print(f"  Status       : Active")
+
+    else:
+        print("  Root : NOT ACTIVE")
 
 
 # ---------------------------------------------------------------------------

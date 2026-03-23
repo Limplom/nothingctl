@@ -63,14 +63,21 @@ from pathlib import Path
 from .arb import check_arb
 from .app_backup import action_app_backup, action_app_restore
 from .backup import action_backup, action_restore, action_verify_backup, check_adb_root
+from .battery import action_battery
+from .capture import action_screenshot, action_screenrecord
 from .debloat import action_debloat
 from .diagnostics import action_anr_dump, action_bugreport, action_logcat
-from .glyph import action_glyph
+from .glyph import action_glyph, action_glyph_pattern
 from .history import action_history, log_flash
+from .info import action_info
+from .performance import action_performance
+from .permissions import action_permissions
+from .prop import action_prop_get, action_prop_set
+from .reboot import action_reboot
 from .sideload import action_sideload
 from .storage import action_apk_extract, action_storage_report
 from .thermal import action_thermal
-from .wifi_adb import action_wifi_adb
+from .wifi_adb import action_wifi_adb, action_adb_pair
 from .device import (
     adb_pull, adb_push, confirm, detect_device,
     fastboot_flash_ab, fastboot_run, query_current_slot, reboot_to_bootloader, run,
@@ -79,9 +86,9 @@ from .exceptions import AdbError, FastbootTimeoutError, FlashError, FirmwareErro
 from .firmware import (
     SDCARD_DOWNLOAD, build_partition_list, find_magisk_patched, resolve_firmware,
 )
-from .magisk import action_install_magisk, check_magisk, print_magisk_status
+from .magisk import action_install_magisk, check_magisk, print_magisk_status, print_root_status
 from .models import DeviceInfo, FirmwareState, MagiskStatus
-from .modules import action_modules
+from .modules import action_modules, action_modules_toggle, action_modules_status
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +347,26 @@ def main():
                         help="Minimum log level for --logcat (default: all)")
     parser.add_argument("--lines",          metavar="N", type=int, default=500,
                         help="Max log lines for --logcat (default: 500)")
+    parser.add_argument("--target",         metavar="system|bootloader|recovery|safe|download|sideload",
+                        help="Reboot target (use with --reboot)")
+    parser.add_argument("--duration",       metavar="N", type=int, default=30,
+                        help="Screen record duration in seconds (use with --screenrecord, max 180)")
+    parser.add_argument("--key",            metavar="PROP",
+                        help="Property key for --prop-get / --prop-set")
+    parser.add_argument("--value",          metavar="VAL",
+                        help="Property value for --prop-set")
+    parser.add_argument("--profile",        metavar="performance|balanced|powersave",
+                        help="CPU governor profile (use with --performance)")
+    parser.add_argument("--encrypt",        action="store_true",
+                        help="Encrypt partition backup with a password (use with --backup)")
+    parser.add_argument("--module-id",      metavar="MODULE",
+                        help="Module directory name or ID for --modules-toggle")
+    parser.add_argument("--enable",         action="store_true",
+                        help="Enable a disabled module (use with --modules-toggle; "
+                             "omit to disable)")
+    parser.add_argument("--pattern",        metavar="PATTERN",
+                        help="Glyph pattern name for --glyph-pattern "
+                             "(test, off, pulse, blink, wave)")
 
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--backup",         action="store_true",
@@ -399,6 +426,36 @@ def main():
     mode.add_argument("--anr-dump",       action="store_true",
                       help="Pull ANR traces and tombstones from /data/anr/ + /data/tombstones/ "
                            "(requires root)")
+    mode.add_argument("--battery",        action="store_true",
+                      help="Show battery health report: level, status, temperature, cycle count")
+    mode.add_argument("--info",           action="store_true",
+                      help="Show full device dashboard: Android version, SoC, RAM, storage, IMEI")
+    mode.add_argument("--reboot",         action="store_true",
+                      help="Reboot to a target (use --target; interactive menu if omitted)")
+    mode.add_argument("--screenshot",     action="store_true",
+                      help="Capture a screenshot and save it locally")
+    mode.add_argument("--screenrecord",   action="store_true",
+                      help="Record the screen (use --duration for length, default 30s)")
+    mode.add_argument("--permissions",    action="store_true",
+                      help="Audit dangerous permissions granted to apps "
+                           "(use --package for single-app detail)")
+    mode.add_argument("--prop-get",       action="store_true",
+                      help="Read system property (use --key for a specific prop; "
+                           "all properties if omitted)")
+    mode.add_argument("--prop-set",       action="store_true",
+                      help="Write system property (requires root; use --key and --value)")
+    mode.add_argument("--performance",    action="store_true",
+                      help="Set CPU governor profile (use --profile; interactive menu if omitted)")
+    mode.add_argument("--adb-pair",       action="store_true",
+                      help="Pair a new device via wireless ADB pairing code (Android 11+)")
+    mode.add_argument("--modules-status", action="store_true",
+                      help="List all installed Magisk modules with enabled/disabled state")
+    mode.add_argument("--modules-toggle", action="store_true",
+                      help="Enable or disable a Magisk module (use --module-id and --enable)")
+    mode.add_argument("--glyph-pattern",  action="store_true",
+                      help="Run a Glyph light pattern (use --pattern: test, off, pulse, blink, wave)")
+    mode.add_argument("--fix-biometric",  action="store_true",
+                      help="Force PIN/password auth instead of fingerprint (workaround for broken sensors)")
 
     args     = parser.parse_args()
     base_dir = Path(args.base_dir)
@@ -411,9 +468,12 @@ def main():
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
     try:
-        # --history doesn't require a connected device
+        # Commands that don't require a connected device
         if args.history:
             action_history(base_dir)
+            return
+        if args.adb_pair:
+            action_adb_pair()
             return
 
         print("Detecting device...")
@@ -423,9 +483,18 @@ def main():
         print(f"  Storage : {device_dir}")
 
         if args.backup:
-            action_backup(device, device_dir)
+            password = None
+            if args.encrypt:
+                import getpass
+                password = getpass.getpass("Backup encryption password: ")
+            action_backup(device, device_dir, password=password)
         elif args.restore:
-            action_restore(device, device_dir, args.restore_dir, args.restore_full)
+            password = None
+            if args.encrypt:
+                import getpass
+                password = getpass.getpass("Backup decryption password: ")
+            action_restore(device, device_dir, args.restore_dir, args.restore_full,
+                           password=password)
         elif args.verify_backup:
             action_verify_backup(device, device_dir, args.restore_dir)
         elif args.debloat:
@@ -434,6 +503,8 @@ def main():
             action_wifi_adb(device)
         elif args.glyph:
             action_glyph(device, args.glyph_enable)
+        elif args.glyph_pattern:
+            action_glyph_pattern(device, args.pattern)
         elif args.thermal:
             action_thermal(device, watch=args.watch)
         elif args.sideload:
@@ -444,6 +515,12 @@ def main():
             action_app_restore(device, args.restore_dir)
         elif args.modules:
             action_modules(device, base_dir, args.install)
+        elif args.modules_status:
+            action_modules_status(device)
+        elif args.modules_toggle:
+            if not args.module_id:
+                raise AdbError("--modules-toggle requires --module-id <MODULE>")
+            action_modules_toggle(device, args.module_id, enable=args.enable)
         elif args.storage_report:
             action_storage_report(device, top_n=args.top_n)
         elif args.apk_extract:
@@ -455,6 +532,34 @@ def main():
             action_bugreport(device, device_dir)
         elif args.anr_dump:
             action_anr_dump(device, device_dir)
+        elif args.battery:
+            action_battery(device)
+        elif args.info:
+            action_info(device)
+        elif args.reboot:
+            action_reboot(device, args.target)
+        elif args.screenshot:
+            action_screenshot(device, device_dir)
+        elif args.screenrecord:
+            action_screenrecord(device, device_dir, duration=args.duration)
+        elif args.permissions:
+            action_permissions(device, package=args.package)
+        elif args.prop_get:
+            action_prop_get(device, args.key)
+        elif args.prop_set:
+            if not args.key or not args.value:
+                raise AdbError("--prop-set requires --key <PROP> and --value <VAL>")
+            action_prop_set(device, args.key, args.value)
+        elif args.performance:
+            action_performance(device, args.profile)
+        elif args.fix_biometric:
+            r = run(["adb", "-s", device.serial, "shell",
+                     "locksettings require-strong-auth STRONG_AUTH_REQUIRED_AFTER_USER_LOCKDOWN"])
+            if r.returncode == 0:
+                print("[OK] Strong auth enforced — PIN/password will be used instead of fingerprint.")
+                print("     Effect lasts until next reboot. Run again if needed after restart.")
+            else:
+                raise AdbError(f"locksettings failed: {r.stderr.strip()}")
         elif args.install_magisk:
             print("Checking Magisk status...")
             ms = check_magisk(device.serial)

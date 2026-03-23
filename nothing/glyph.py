@@ -1,5 +1,7 @@
 """Nothing Glyph Interface diagnostics and control via ADB."""
 
+import time
+
 from .device import run
 from .exceptions import AdbError
 from .models import DeviceInfo
@@ -26,6 +28,7 @@ _SETTINGS_NEW = [
 _GLYPH_ZONES = {
     "Phone (1)":        ["Camera", "Diagonal", "Battery dot", "Battery bar", "USB"],
     "spacewar":         ["Camera", "Diagonal", "Battery dot", "Battery bar", "USB"],
+    "A063":             ["Camera", "Diagonal", "Battery dot", "Battery bar", "USB"],
     "Phone (2)":        ["Camera top", "Camera bottom", "Diagonal",
                          "Battery left", "Battery right", "USB", "Notification"],
     "pong":             ["Camera top", "Camera bottom", "Diagonal",
@@ -36,6 +39,7 @@ _GLYPH_ZONES = {
     "Phone (3a)":       ["Camera top", "Camera bottom", "Battery", "Bottom strip"],
     "galaxian":         ["Camera top", "Camera bottom", "Battery", "Bottom strip"],
     "A001":             ["Camera top", "Camera bottom", "Battery", "Bottom strip"],
+    "A001T":            ["Camera", "Bottom strip"],
     "CMF Phone 1":      ["Ring", "Dot"],
 }
 
@@ -135,3 +139,130 @@ def action_glyph(device: DeviceInfo, enable: str | None) -> None:
     print(f"    python nothingctl.py --glyph --glyph-enable off")
     if not _is_legacy(pkg):
         print(f"    (or use the Glyphs tile in Quick Settings)")
+
+
+# ---------------------------------------------------------------------------
+# Glyph pattern support
+# ---------------------------------------------------------------------------
+
+# Human-readable descriptions for named patterns.
+GLYPH_PATTERNS = {
+    "pulse": "Slow pulse all zones",
+    "blink": "Fast blink all zones",
+    "wave":  "Sequential zone sweep",
+    "off":   "Turn all zones off",
+    "test":  "Light each zone once in sequence (diagnostic)",
+}
+
+# Mapping from zone display name to (namespace, settings_key).
+# Only zones with known ADB settings keys are listed here.
+_ZONE_SETTING_MAP: dict[str, tuple[str, str]] = {
+    "Long torch":  ("global", "glyph_long_torch_enable"),
+    "Pocket mode": ("global", "glyph_pocket_mode_state"),
+}
+
+
+def _zone_setting_key(zone_name: str) -> tuple[str, str] | None:
+    """Map zone names to their (namespace, settings_key) tuple where known."""
+    return _ZONE_SETTING_MAP.get(zone_name)
+
+
+def _get_zones_for_device(device: DeviceInfo) -> list[str]:
+    """Return the list of Glyph zone names for the given device, or []."""
+    model_key = next(
+        (k for k in _GLYPH_ZONES if k.lower() in device.model.lower()), None
+    )
+    return _GLYPH_ZONES[model_key] if model_key else []
+
+
+def _run_test_pattern(device: DeviceInfo) -> None:
+    """Light each known zone once in sequence with a short pause between each."""
+    zones = _get_zones_for_device(device)
+    if not zones:
+        print(f"[WARN] No zone map found for model '{device.model}' — skipping test pattern.")
+        return
+
+    print(f"\n  Running test pattern on {device.model} ({len(zones)} zones)...")
+    for zone in zones:
+        key_info = _zone_setting_key(zone)
+        if key_info:
+            ns, key = key_info
+            run(["adb", "-s", device.serial, "shell",
+                 f"settings put {ns} {key} 1"], check=False)
+            print(f"    [ON]  {zone}")
+            time.sleep(0.5)
+            run(["adb", "-s", device.serial, "shell",
+                 f"settings put {ns} {key} 0"], check=False)
+            print(f"    [OFF] {zone}")
+        else:
+            print(f"    {zone}: (direct control not available via ADB settings)")
+        time.sleep(0.5)
+
+    print("[OK] Test pattern complete.")
+
+
+def _run_off_pattern(device: DeviceInfo) -> None:
+    """Set all known glyph settings to 0 (off)."""
+    # Turn off all _SETTINGS_NEW global toggles
+    for ns, key, label in _SETTINGS_NEW:
+        run(["adb", "-s", device.serial, "shell",
+             f"settings put {ns} {key} 0"], check=False)
+        print(f"  [OFF] {label}")
+
+    # Turn off any additional zone-mapped settings
+    for zone, (ns, key) in _ZONE_SETTING_MAP.items():
+        # Avoid double-setting keys already covered by _SETTINGS_NEW
+        already_set = any(k == key for _, k, _ in _SETTINGS_NEW)
+        if not already_set:
+            run(["adb", "-s", device.serial, "shell",
+                 f"settings put {ns} {key} 0"], check=False)
+            print(f"  [OFF] {zone}")
+
+    print("[OK] All known Glyph settings set to off.")
+
+
+def action_glyph_pattern(device: DeviceInfo, pattern: str | None) -> None:
+    """
+    Display available Glyph patterns or trigger a named pattern on the device.
+
+    pattern: one of GLYPH_PATTERNS keys, or None to list available patterns.
+    """
+    model_display = device.model
+
+    if pattern is None:
+        # Show available patterns and current Glyph state
+        print(f"\n  Glyph Patterns — Nothing {model_display}")
+        print(f"\n  Available patterns:")
+        for name, desc in GLYPH_PATTERNS.items():
+            if name in ("test", "off"):
+                print(f"    {name:<8} — {desc}")
+        print(f"\n  Custom patterns require the Nothing Glyph Composer app.")
+        print(f"  For advanced patterns, see: https://github.com/nothing-open-source/glyphify")
+        print(f"\n  Use: python nothingctl.py --glyph-pattern test")
+        print(f"       python nothingctl.py --glyph-pattern off")
+        return
+
+    pattern = pattern.lower().strip()
+
+    if pattern == "test":
+        _run_test_pattern(device)
+
+    elif pattern == "off":
+        print(f"\n  Turning all Glyph zones off on {model_display}...")
+        _run_off_pattern(device)
+
+    elif pattern in GLYPH_PATTERNS:
+        # Custom patterns (pulse, blink, wave) are not directly scriptable without
+        # the Glyph Composer app or Nothing's private SDK.
+        print(f"\n  [WARN] Pattern '{pattern}' ({GLYPH_PATTERNS[pattern]}) requires")
+        print(f"         the Nothing Glyph Composer app or Glyph SDK.")
+        print(f"         See: https://github.com/nothing-open-source/glyphify")
+        print(f"\n  Running 'test' pattern as fallback...")
+        _run_test_pattern(device)
+
+    else:
+        known = ", ".join(GLYPH_PATTERNS.keys())
+        raise AdbError(
+            f"Unknown Glyph pattern '{pattern}'. "
+            f"Available patterns: {known}"
+        )

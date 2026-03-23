@@ -46,7 +46,11 @@ def adb_push(local, remote: str, serial: str) -> None:
 
 
 def adb_pull(remote: str, local, serial: str) -> None:
-    r = run(["adb", "-s", serial, "pull", remote, str(local)])
+    env = {**os.environ, "MSYS_NO_PATHCONV": "1"}
+    r = subprocess.run(
+        ["adb", "-s", serial, "pull", remote, str(local)],
+        capture_output=True, text=True, env=env,
+    )
     if r.returncode != 0:
         raise AdbError(f"adb pull '{remote}' failed: {r.stderr.strip()}")
 
@@ -136,8 +140,17 @@ def detect_device(serial: str | None) -> DeviceInfo:
 
     detected_serial = serial or lines[0].split()[0]
 
-    model        = run(["adb", "-s", detected_serial, "shell",
+    # Prefer the human-friendly brand name (e.g. "Nothing Phone (1)") over
+    # the raw model code (e.g. "A063") which Nothing uses for EEA variants.
+    brand_name   = run(["adb", "-s", detected_serial, "shell",
+                        "getprop ro.product.brand_device_name"]).stdout.strip()
+    model_code   = run(["adb", "-s", detected_serial, "shell",
                         "getprop ro.product.model"]).stdout.strip()
+    # brand_device_name includes the manufacturer prefix ("Nothing Phone (1)").
+    # Strip it so cli.py can prepend "Nothing " uniformly without duplication.
+    if brand_name.lower().startswith("nothing "):
+        brand_name = brand_name[8:]
+    model        = brand_name or model_code
     manufacturer = run(["adb", "-s", detected_serial, "shell",
                         "getprop ro.product.manufacturer"]).stdout.strip()
     codename     = run(["adb", "-s", detected_serial, "shell",

@@ -1,4 +1,4 @@
-"""Wireless ADB setup — tcpip mode + auto-connect."""
+"""Wireless ADB setup — tcpip mode, auto-connect, and Android 11+ pairing."""
 
 import re
 import time
@@ -58,4 +58,64 @@ def action_wifi_adb(device: DeviceInfo) -> None:
         raise AdbError(
             f"Connection to {ip}:5555 failed: {out}\n"
             "Check that phone and PC are on the same Wi-Fi network."
+        )
+
+
+def action_adb_pair(port: int = 5555) -> None:
+    """
+    Android 11+ wireless ADB pairing flow.
+
+    Guides the user through the on-device pairing steps, then runs:
+      adb pair <ip>:<pairing_port> <pairing_code>
+    followed by:
+      adb connect <ip>:<port>
+
+    No DeviceInfo is needed — pairing happens before a device is connected.
+    The 'port' parameter is the final connection port (default 5555).
+    """
+    print("\n  Wireless ADB Pairing (Android 11+)\n")
+    print("  On your phone:")
+    print("    1. Settings -> Developer options -> Wireless debugging")
+    print("    2. Tap \"Pair device with pairing code\"")
+    print("    3. Note the IP address, pairing port, and 6-digit code shown on screen\n")
+
+    try:
+        ip_addr      = input("  Enter device IP address: ").strip()
+        pairing_port = input("  Enter pairing port (shown on phone): ").strip()
+        pairing_code = input("  Enter 6-digit pairing code: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        raise AdbError("Pairing aborted by user.")
+
+    if not ip_addr or not pairing_port or not pairing_code:
+        raise AdbError("IP address, pairing port, and pairing code are all required.")
+
+    pair_target = f"{ip_addr}:{pairing_port}"
+    print(f"\n  Pairing with {pair_target}...")
+
+    r = run(["adb", "pair", pair_target, pairing_code])
+    out = (r.stdout + r.stderr).strip()
+
+    if "successfully paired" not in out.lower():
+        raise AdbError(
+            f"Pairing failed: {out}\n"
+            "Make sure the code and port match exactly what is shown on the phone.\n"
+            "The pairing code expires after a short time — try again if needed."
+        )
+    print("[OK] Device paired!\n")
+
+    connect_target = f"{ip_addr}:{port}"
+    print(f"  Connecting to {connect_target}...")
+    r = run(["adb", "connect", connect_target])
+    out = (r.stdout + r.stderr).strip()
+
+    if "connected" in out.lower():
+        print(f"[OK] Wireless ADB active on {connect_target}")
+        print(f"Reconnect later with:  adb connect {connect_target}")
+        print(f"Disconnect with:       adb disconnect {connect_target}")
+    else:
+        raise AdbError(
+            f"Connection to {connect_target} failed: {out}\n"
+            "Pairing succeeded but connection was refused. "
+            "Check that both devices are on the same Wi-Fi network."
         )

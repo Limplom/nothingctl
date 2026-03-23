@@ -22,3 +22,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Claude Code local data
+.claude/
+
+# Project tracking
+TODO.md

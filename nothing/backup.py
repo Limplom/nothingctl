@@ -2,6 +2,7 @@
 
 import datetime
 import hashlib
+import tempfile
 from pathlib import Path
 
 from .device import (
@@ -67,13 +68,112 @@ def check_adb_root(serial: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Encryption helpers (optional — requires 'cryptography' package)
+# ---------------------------------------------------------------------------
+
+def _encrypt_backup(backup_dir: Path, password: str) -> None:
+    """
+    Encrypt all .img files in backup_dir using AES-256-GCM.
+    Requires the 'cryptography' package (pip install cryptography).
+    Each file is encrypted in-place: file.img -> file.img.enc, original deleted.
+    A salt file is written to backup_dir/encryption.salt for key derivation.
+    """
+    try:
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+    except ImportError:
+        raise AdbError(
+            "Backup encryption requires the 'cryptography' package.\n"
+            "Install with: pip install cryptography"
+        )
+    import os
+
+    salt = os.urandom(32)
+    (backup_dir / "encryption.salt").write_bytes(salt)
+
+    # Derive key with scrypt
+    kdf = Scrypt(salt=salt, length=32, n=2**14, r=8, p=1)
+    key = kdf.derive(password.encode())
+    aesgcm = AESGCM(key)
+
+    images = list(backup_dir.glob("*.img"))
+    for img in images:
+        nonce = os.urandom(12)
+        plaintext = img.read_bytes()
+        ciphertext = aesgcm.encrypt(nonce, plaintext, None)
+        enc_path = img.with_suffix(".img.enc")
+        # Write: 12-byte nonce + ciphertext
+        enc_path.write_bytes(nonce + ciphertext)
+        img.unlink()
+
+    print(f"  Encrypted {len(images)} partition images.")
+    print(f"  Keep the password safe — backups cannot be decrypted without it.")
+
+
+def _decrypt_backup(backup_dir: Path, password: str) -> None:
+    """
+    Decrypt all .img.enc files in backup_dir produced by _encrypt_backup.
+    Reverses the process: file.img.enc -> file.img, encrypted file deleted.
+    Reads the salt from backup_dir/encryption.salt.
+    """
+    try:
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+    except ImportError:
+        raise AdbError(
+            "Backup decryption requires the 'cryptography' package.\n"
+            "Install with: pip install cryptography"
+        )
+
+    salt_file = backup_dir / "encryption.salt"
+    if not salt_file.exists():
+        raise AdbError(
+            f"Encryption salt file not found in {backup_dir}.\n"
+            "Cannot decrypt backup without it."
+        )
+    salt = salt_file.read_bytes()
+
+    kdf = Scrypt(salt=salt, length=32, n=2**14, r=8, p=1)
+    key = kdf.derive(password.encode())
+    aesgcm = AESGCM(key)
+
+    enc_images = list(backup_dir.glob("*.img.enc"))
+    if not enc_images:
+        raise AdbError(f"No .img.enc files found in {backup_dir}.")
+
+    for enc_path in enc_images:
+        raw = enc_path.read_bytes()
+        if len(raw) < 12:
+            raise AdbError(
+                f"Encrypted file too short to contain nonce: {enc_path.name}"
+            )
+        nonce      = raw[:12]
+        ciphertext = raw[12:]
+        try:
+            plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+        except Exception as exc:
+            raise AdbError(
+                f"Decryption failed for {enc_path.name}.\n"
+                "Wrong password, or the file is corrupt."
+            ) from exc
+        # Reconstruct original name: strip the trailing .enc suffix
+        img_path = enc_path.with_name(enc_path.name[: -len(".enc")])
+        img_path.write_bytes(plaintext)
+        enc_path.unlink()
+
+    print(f"  Decrypted {len(enc_images)} partition images.")
+
+
+# ---------------------------------------------------------------------------
 # Backup
 # ---------------------------------------------------------------------------
 
-def action_backup(device: DeviceInfo, device_dir: Path, label: str = "") -> Path:
+def action_backup(device: DeviceInfo, device_dir: Path, label: str = "",
+                  password: str | None = None) -> Path:
     """
     Dump all BACKUP_PARTITIONS from the device to local storage.
     Requires ADB root (Magisk 'Apps and ADB' mode).
+    If password is given, all .img files are encrypted with AES-256-GCM after pull.
     Returns the local backup directory path.
     """
     if not check_adb_root(device.serial):
@@ -127,7 +227,14 @@ def action_backup(device: DeviceInfo, device_dir: Path, label: str = "") -> Path
     # Save SHA256 checksums alongside the images so --verify-backup can use them
     _save_checksums(pulled, local_dir)
 
-    print(f"[OK] {len(pulled)} partitions backed up ({total_mb:.0f} MB) -> {local_dir}")
+    if password is not None:
+        print("\nEncrypting backup images...")
+        _encrypt_backup(local_dir, password)
+        enc_note = "  (encrypted)"
+    else:
+        enc_note = ""
+
+    print(f"[OK] {len(pulled)} partitions backed up ({total_mb:.0f} MB) -> {local_dir}{enc_note}")
     return local_dir
 
 
@@ -189,49 +296,78 @@ def pick_backup(device_dir: Path, restore_dir: str | None) -> Path:
 
 
 def action_restore(device: DeviceInfo, device_dir: Path,
-                   restore_dir: str | None, full_restore: bool) -> None:
+                   restore_dir: str | None, full_restore: bool,
+                   password: str | None = None) -> None:
     backup_path = pick_backup(device_dir, restore_dir)
-    images      = {f.stem: f for f in backup_path.glob("*.img")}
 
-    safe    = {k: v for k, v in images.items() if k in RESTORE_SAFE}
-    risky   = {k: v for k, v in images.items() if k in RESTORE_RISKY}
-    unknown = {k: v for k, v in images.items()
-               if k not in RESTORE_SAFE and k not in RESTORE_RISKY}
+    # Detect encrypted backup by presence of encryption.salt
+    salt_file = backup_path / "encryption.salt"
+    _tmp_dir  = None
+    work_path = backup_path
 
-    print(f"\nBackup : {backup_path.name}")
-    print(f"Safe   ({len(safe):2d}): {', '.join(sorted(safe))}")
-    if risky:
-        print(f"Risky  ({len(risky):2d}): {', '.join(sorted(risky))}")
-    if unknown:
-        print(f"Unknown ({len(unknown):2d}): {', '.join(sorted(unknown))}  — skipped")
+    if salt_file.exists():
+        if password is None:
+            raise AdbError(
+                f"Backup at {backup_path.name} is encrypted.\n"
+                "Provide the backup password to restore."
+            )
+        print("\nDecrypting backup images (this may take a moment)...")
+        _tmp_dir  = tempfile.mkdtemp(prefix="nothingctl_restore_")
+        work_path = Path(_tmp_dir)
+        # Copy all files (salt, checksums, encrypted images) into temp dir
+        import shutil
+        for f in backup_path.iterdir():
+            shutil.copy2(str(f), str(work_path / f.name))
+        _decrypt_backup(work_path, password)
 
-    to_flash = dict(safe)
-    if full_restore and risky:
-        print("\nWARNING: --restore-full includes calibration/bootloader partitions.")
-        print("         Only do this if you are restoring to the exact same device.")
-        to_flash.update(risky)
-    elif risky:
-        print("\nRisky partitions skipped. Use --restore-full to include them.")
+    try:
+        images = {f.stem: f for f in work_path.glob("*.img")}
 
-    print(f"\nWill flash {len(to_flash)} partitions to device.")
-    confirm("Reboot to bootloader and restore?")
+        safe    = {k: v for k, v in images.items() if k in RESTORE_SAFE}
+        risky   = {k: v for k, v in images.items() if k in RESTORE_RISKY}
+        unknown = {k: v for k, v in images.items()
+                   if k not in RESTORE_SAFE and k not in RESTORE_RISKY}
 
-    reboot_to_bootloader(device.serial)
+        print(f"\nBackup : {backup_path.name}")
+        print(f"Safe   ({len(safe):2d}): {', '.join(sorted(safe))}")
+        if risky:
+            print(f"Risky  ({len(risky):2d}): {', '.join(sorted(risky))}")
+        if unknown:
+            print(f"Unknown ({len(unknown):2d}): {', '.join(sorted(unknown))}  — skipped")
 
-    failed = []
-    for part, img in sorted(to_flash.items()):
-        try:
-            fastboot_flash(part, img, device.serial)
-        except FlashError as e:
-            print(f"  WARN: {e}")
-            failed.append(part)
+        to_flash = dict(safe)
+        if full_restore and risky:
+            print("\nWARNING: --restore-full includes calibration/bootloader partitions.")
+            print("         Only do this if you are restoring to the exact same device.")
+            to_flash.update(risky)
+        elif risky:
+            print("\nRisky partitions skipped. Use --restore-full to include them.")
 
-    fastboot_run("reboot", serial=device.serial)
+        print(f"\nWill flash {len(to_flash)} partitions to device.")
+        confirm("Reboot to bootloader and restore?")
 
-    if failed:
-        print(f"\nWARNING: Failed to flash: {', '.join(failed)}")
-    ok = len(to_flash) - len(failed)
-    print(f"[OK] Restore complete — {ok}/{len(to_flash)} partitions flashed.")
+        reboot_to_bootloader(device.serial)
+
+        failed = []
+        for part, img in sorted(to_flash.items()):
+            try:
+                fastboot_flash(part, img, device.serial)
+            except FlashError as e:
+                print(f"  WARN: {e}")
+                failed.append(part)
+
+        fastboot_run("reboot", serial=device.serial)
+
+        if failed:
+            print(f"\nWARNING: Failed to flash: {', '.join(failed)}")
+        ok = len(to_flash) - len(failed)
+        print(f"[OK] Restore complete — {ok}/{len(to_flash)} partitions flashed.")
+
+    finally:
+        # Clean up the temporary decryption directory if one was created
+        if _tmp_dir is not None:
+            import shutil
+            shutil.rmtree(_tmp_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

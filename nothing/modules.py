@@ -357,3 +357,126 @@ def action_modules(
     print(f"\n[OK] {ok}/{len(targets)} modules installed.")
     if ok:
         print("     Reboot device to activate modules.")
+
+
+# ---------------------------------------------------------------------------
+# Toggle (enable / disable) a specific module
+# ---------------------------------------------------------------------------
+
+def _fuzzy_find_dir(module_id: str, installed_dirs: set[str]) -> str | None:
+    """
+    Return the best-matching directory name for module_id.
+    Uses the same normalisation as _is_installed (strip hyphens/underscores,
+    lowercase), then returns the first match.
+    """
+    key = module_id.lower().replace("-", "").replace("_", "")
+    for d in sorted(installed_dirs):  # sorted for determinism
+        if key in d.lower().replace("-", "").replace("_", ""):
+            return d
+    return None
+
+
+def action_modules_toggle(device: DeviceInfo, module_id: str, enable: bool) -> None:
+    """
+    Enable or disable an installed Magisk module by creating / removing the
+    'disable' flag file in its directory under /data/adb/modules/.
+
+    Changes take effect on the next reboot.
+    Requires ADB root.
+    """
+    from .backup import check_adb_root  # local import to avoid circular dependency
+
+    if not check_adb_root(device.serial):
+        raise AdbError(
+            "Root not available via ADB shell.\n"
+            "Enable in Magisk: Settings -> Superuser access -> Apps and ADB."
+        )
+
+    installed_dirs = get_installed_modules(device.serial)
+    if not installed_dirs:
+        raise AdbError("No Magisk modules found in /data/adb/modules/.")
+
+    module_dir = _fuzzy_find_dir(module_id, installed_dirs)
+    if module_dir is None:
+        raise AdbError(
+            f"No installed module matching '{module_id}' found.\n"
+            f"Installed dirs: {', '.join(sorted(installed_dirs))}"
+        )
+
+    disable_file = f"/data/adb/modules/{module_dir}/disable"
+
+    if enable:
+        # Remove the disable file to re-enable
+        r = run(["adb", "-s", device.serial, "shell",
+                 f"su -c 'rm -f {disable_file}'"])
+        if r.returncode != 0:
+            raise AdbError(
+                f"Failed to enable module '{module_dir}': {r.stderr.strip()}"
+            )
+        print(f"[OK] {module_id} enabled — reboot to apply")
+    else:
+        # Create the disable file
+        r = run(["adb", "-s", device.serial, "shell",
+                 f"su -c 'touch {disable_file}'"])
+        if r.returncode != 0:
+            raise AdbError(
+                f"Failed to disable module '{module_dir}': {r.stderr.strip()}"
+            )
+        print(f"[OK] {module_id} disabled — reboot to apply")
+
+
+# ---------------------------------------------------------------------------
+# Status — list all modules with enable/disable state
+# ---------------------------------------------------------------------------
+
+def action_modules_status(device: DeviceInfo) -> None:
+    """
+    List all installed Magisk modules and whether they are enabled or disabled.
+
+    A module is disabled when a 'disable' file exists inside its module directory.
+    Requires ADB root.
+    """
+    from .backup import check_adb_root  # local import to avoid circular dependency
+
+    if not check_adb_root(device.serial):
+        raise AdbError(
+            "Root not available via ADB shell.\n"
+            "Enable in Magisk: Settings -> Superuser access -> Apps and ADB."
+        )
+
+    installed_dirs = get_installed_modules(device.serial)
+    if not installed_dirs:
+        print("No Magisk modules found in /data/adb/modules/.")
+        return
+
+    # Check disable files for all modules in a single adb round-trip
+    # Build a shell one-liner: for each dir, check if disable exists
+    check_cmd = (
+        "for d in /data/adb/modules/*/; do "
+        "  name=$(basename $d); "
+        "  if su -c 'test -f $d/disable' 2>/dev/null; then "
+        "    echo \"$name|disabled\"; "
+        "  else "
+        "    echo \"$name|enabled\"; "
+        "  fi; "
+        "done"
+    )
+    r = run(["adb", "-s", device.serial, "shell", check_cmd])
+
+    states: dict[str, str] = {}
+    for line in r.stdout.strip().splitlines():
+        parts = line.strip().split("|", 1)
+        if len(parts) == 2 and parts[0]:
+            states[parts[0].strip()] = parts[1].strip()
+
+    # Fall back to listing without state if the one-liner produced no output
+    if not states:
+        for d in sorted(installed_dirs):
+            states[d] = "unknown"
+
+    print("\n  Installed Magisk modules:\n")
+    for module_dir in sorted(states):
+        state = states[module_dir].upper()
+        suffix = "  <- has disable file" if state == "DISABLED" else ""
+        print(f"  {module_dir:<40} [{state}]{suffix}")
+    print()
