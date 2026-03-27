@@ -83,6 +83,7 @@ nothingctl ota-update
 
 | Command | What it does | Requires |
 |---------|-------------|----------|
+| `check-update` | Check nothing_archive for a firmware update (no download) | ADB |
 | `root-status` | Detect active root manager (Magisk / KernelSU / APatch) | ADB |
 | `backup` | Dump 31 partitions via root dd → local storage + checksums | ADB root |
 | `restore` | Flash backed-up partitions back to device | Fastboot |

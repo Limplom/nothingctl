@@ -63,6 +63,7 @@ func init() {
 	// history / status
 	rootCmd.AddCommand(historyCmd)
 	rootCmd.AddCommand(rootStatusCmd)
+	rootCmd.AddCommand(checkUpdateCmd)
 }
 
 // resolveBaseDir returns the effective base directory, defaulting to
@@ -549,5 +550,30 @@ var rootStatusCmd = &cobra.Command{
 		}
 		magisk.PrintRootStatus(serial)
 		return nil
+	},
+}
+
+// ---------------------------------------------------------------------------
+// check-update
+// ---------------------------------------------------------------------------
+
+var checkUpdateCmd = &cobra.Command{
+	Use:   "check-update",
+	Short: "Check nothing_archive for a firmware update (no download)",
+	Long: `Reads the current firmware version from the connected device, queries the
+spike0en/nothing_archive GitHub releases for the latest build matching the
+device codename, and reports whether an update is available.
+
+No files are downloaded — use ota-update to download and flash.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		serial, err := adb.EnsureDevice(flagSerial)
+		if err != nil {
+			return err
+		}
+		dev, err := adb.DetectDevice(serial)
+		if err != nil {
+			return err
+		}
+		return firmware.CheckUpdate(serial, dev.Codename)
 	},
 }

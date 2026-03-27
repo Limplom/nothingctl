@@ -31,6 +31,7 @@ Wraps the `nothingctl` Go binary — a compiled CLI tool for complete Nothing ph
 
 | Command | What it does | Req. |
 |---------|-------------|------|
+| `check-update` | Check nothing_archive for a firmware update — no download | ADB |
 | `root-status` | Detect active root manager (Magisk / KernelSU / APatch) | ADB |
 | `backup` | Dump 31 partitions → local storage + checksums.sha256 | root |
 | `restore` | Flash backed-up partitions via fastboot | Fastboot |
