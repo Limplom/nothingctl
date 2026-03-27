@@ -17,186 +17,154 @@ allowed-tools: Bash
 
 # nothingctl Skill
 
-Wraps `nothingctl.py` — a Python CLI tool for complete Nothing phone management.
+Wraps the `nothingctl` Go binary — a compiled CLI tool for complete Nothing phone management.
 
-**Invocation:** `python <skill-dir>/nothingctl.py [--serial <serial>] <mode> [modifiers]`
+**Invocation:** `<skill-dir>/nothingctl [-s <serial>] <command> [flags]`
 
-**Always detect device first** (no args) — confirms firmware + Magisk state.
+**Always detect device first** — run `nothingctl root-status` and `nothingctl info` to confirm state.
 
 ---
 
-## Modes
+## Commands
 
 ### Firmware & Root
 
-| Flag | What it does | Req. |
-|------|-------------|------|
-| *(default)* | Check firmware + Magisk status, download if newer | ADB |
-| `--backup` | Dump 31 partitions → local storage + checksums.sha256 | root |
-| `--restore` | Flash backed-up partitions via fastboot | Fastboot |
-| `--verify-backup` | Compare live partition hashes against backup | root |
-| `--install-magisk` | Download + install/update Magisk APK | ADB |
-| `--flash-firmware` | Flash boot partitions from nothing_archive + ARB check | Fastboot |
-| `--ota-update` | Download + Magisk CLI patch + flash (root preserved) | root + FB |
-| `--unroot` | Flash stock boot to both slots (removes root) | Fastboot |
-| `--push-for-patch` | Push stock boot image to /sdcard/Download/ | ADB |
-| `--flash-patched` | Pull magisk_patched*.img and flash both slots | Fastboot |
-| `--fix-biometric` | Force PIN auth instead of fingerprint (workaround for broken sensor blocking Magisk grants; effect lasts until reboot) | ADB |
+| Command | What it does | Req. |
+|---------|-------------|------|
+| `root-status` | Detect active root manager (Magisk / KernelSU / APatch) | ADB |
+| `backup` | Dump 31 partitions → local storage + checksums.sha256 | root |
+| `restore` | Flash backed-up partitions via fastboot | Fastboot |
+| `verify-backup` | Compare live partition hashes against backup | root |
+| `install-magisk` | Download + install/update Magisk APK | ADB |
+| `update-magisk` | Update Magisk to latest version | ADB |
+| `flash-firmware` | Flash boot partitions from nothing_archive + ARB check | Fastboot |
+| `ota-update` | Download + Magisk CLI patch + flash (root preserved) | root + FB |
+| `unroot` | Flash stock boot to both slots (removes root) | Fastboot |
+| `push-for-patch` | Push stock boot image to /sdcard/Download/ | ADB |
+| `flash-patched` | Pull magisk_patched*.img and flash both slots | Fastboot |
+| `fix-biometric` | Force PIN auth instead of fingerprint (effect lasts until reboot) | ADB |
+| `history` | Flash operation history log (no device needed) | — |
 
 ### Magisk Modules & App Management
 
-| Flag | What it does | Req. |
-|------|-------------|------|
-| `--modules` | List recommended Magisk modules + install status | root |
-| `--modules-status` | All installed Magisk modules with enabled/disabled state | root |
-| `--modules-toggle` | Enable/disable module (use `--module-id`, `--enable`) | root |
-| `--debloat` | List/disable NothingOS bloatware (use `--remove ids`) | ADB |
-| `--sideload` | Install APK or split-APK directory (use `--apk`) | ADB |
-| `--app-backup` | Backup APK + /data/data for packages (use `--packages`) | root |
-| `--app-restore` | Restore from --app-backup (use `--restore-dir`) | root |
-| `--app-info` | Version, SDK, install date, APK path (use `--package`) | ADB |
-| `--kill-app` | Force-stop app (use `--package`; `--clear-cache` wipes data) | ADB |
-| `--launch-app` | Launch app or deep link (use `--package` or `--intent`) | ADB |
-| `--package-list` | Export all apps as text/csv/json (use `--format`, `--output`) | ADB |
-| `--permissions` | Audit dangerous permissions (use `--package` for single app) | ADB |
+| Command | What it does | Req. |
+|---------|-------------|------|
+| `modules` | List recommended Magisk modules + install status | root |
+| `modules --install <ids>` | Download + install modules (comma-sep IDs or `all`) | root |
+| `modules-status` | All installed Magisk modules with enabled/disabled state | root |
+| `modules-toggle --modules <ids> --enable true\|false` | Enable/disable modules | root |
+| `debloat` | List/disable NothingOS bloatware | ADB |
+| `debloat --remove <ids>` | Disable packages via pm uninstall --user 0 (reversible) | ADB |
+| `sideload --apk <path>` | Install APK or split-APK directory | ADB |
+| `app-backup` | Backup APK + /data/data for packages (`--packages`) | root |
+| `app-restore` | Restore from app-backup | root |
+| `app-info --package <pkg>` | Version, SDK, install date, APK path | ADB |
+| `kill-app --package <pkg>` | Force-stop app | ADB |
+| `launch-app --package <pkg>` | Launch app or deep link (`--deep-link <uri>`) | ADB |
+| `package-list` | Export all apps as text/csv/json (`--format`) | ADB |
+| `permissions` | Audit dangerous permissions (`--package` for single app) | ADB |
 
 ### Device Info & Battery
 
-| Flag | What it does | Req. |
-|------|-------------|------|
-| `--info` | Dashboard: Android version, SoC, RAM, storage, IMEI | ADB |
-| `--battery` | Level, status, temperature, voltage, cycle count | ADB |
-| `--battery-stats` | Per-app wakelock drain since last charge + sysfs cycle count | ADB |
-| `--charging-control` | Read/set charge limit via sysfs (use `--limit N`; custom kernel only) | root |
-| `--reboot` | Reboot to target (use `--target`; interactive if omitted) | ADB |
-| `--screenshot` | Capture screenshot and save locally | ADB |
-| `--screenrecord` | Record screen (use `--duration`, default 30 s) | ADB |
+| Command | What it does | Req. |
+|---------|-------------|------|
+| `info` | Dashboard: Android version, SoC, RAM, storage, IMEI | ADB |
+| `battery` | Level, status, temperature, voltage, cycle count | ADB |
+| `battery-stats` | Per-app wakelock drain since last charge | ADB |
+| `charging-control --limit N` | Read/set charge limit via sysfs (custom kernel only) | root |
+| `reboot` | Reboot to target (`--target`; interactive if omitted) | ADB |
+| `screenshot` | Capture screenshot and save locally | ADB |
+| `screenrecord` | Record screen (`--duration`, default 30 s) | ADB |
 
 ### System Monitoring
 
-| Flag | What it does | Req. |
-|------|-------------|------|
-| `--thermal` | All thermal zone temperatures with ASCII bars (`--watch` for live) | ADB |
-| `--memory` | RAM usage + top apps by RSS (`--package` for detail, `--watch` live) | ADB |
-| `--cpu-usage` | CPU core frequencies + top processes (`--top-n`, `--watch` live) | ADB |
-| `--process-tree` | Full process list UID/PID/state (`--package` to filter) | ADB |
-| `--doze-status` | Doze state + whitelist (`--whitelist-add/--whitelist-remove`) | ADB |
+| Command | What it does | Req. |
+|---------|-------------|------|
+| `thermal` | All thermal zone temperatures with ASCII bars (`--watch` for live) | ADB |
+| `memory` | RAM usage + top apps by RSS (`--package` for detail, `--watch` live) | ADB |
+| `cpu-usage` | CPU core frequencies + top processes (`--top N`, `--watch` live) | ADB |
+| `process-tree` | Full process list UID/PID/state (`--package` to filter) | ADB |
+| `doze-status` | Doze state + whitelist (`--whitelist-add/--whitelist-remove`) | ADB |
+| `logcat` | Dump logcat to file (`--package`, `--tag`, `--level`, `--lines`) | ADB |
+| `bugreport` | Full adb bugreport ZIP (30–90 s) | ADB |
+| `anr-dump` | Pull /data/anr/ + /data/tombstones/ | root |
 
 ### Network & Connectivity
 
-| Flag | What it does | Req. |
-|------|-------------|------|
-| `--network-info` | WiFi SSID, signal, IP, DNS, mobile operator | ADB |
-| `--dns-set` | Show/set Private DNS (use `--provider`: off/cloudflare/adguard/google/quad9/hostname) | ADB |
-| `--port-forward` | List/add/remove ADB port forwards (`--local/--remote`, `--clear`) | ADB |
-| `--wifi-scan` | Nearby WiFi networks sorted by signal | ADB |
-| `--wifi-profiles` | List saved networks; forget with `--forget <SSID\|ID>` | ADB |
-| `--wifi-adb` | Switch to wireless ADB and connect automatically | USB |
-| `--adb-pair` | Pair device via wireless ADB code (Android 11+) | — |
+| Command | What it does | Req. |
+|---------|-------------|------|
+| `network-info` | WiFi SSID, signal, IP, DNS, mobile operator | ADB |
+| `dns-set --provider <name>` | Set Private DNS (off/cloudflare/adguard/google/quad9/hostname) | ADB |
+| `port-forward` | List/add/remove ADB port forwards (`--local/--remote`, `--clear`) | ADB |
+| `wifi-scan` | Nearby WiFi networks sorted by signal | ADB |
+| `wifi-profiles` | List saved networks; forget with `--ssid <SSID>` | ADB |
+| `wifi-adb` | Switch to wireless ADB and connect automatically | USB |
+| `adb-pair --port <port>` | Pair device via wireless ADB code (Android 11+) | — |
 
 ### Display & Audio
 
-| Flag | What it does | Req. |
-|------|-------------|------|
-| `--display` | Show/set display settings (use `--key/--value`; keys: brightness/brightness_auto/dpi/timeout/rotation/rotation_auto/font_scale) | ADB |
-| `--color-profile` | Show/set color mode + night light (use `--mode`: natural/vivid/custom) | ADB |
-| `--audio` | Stream volumes with ASCII bars; set with `--stream` + `--volume` | ADB |
-| `--audio-route` | Active audio output path + connected Bluetooth devices | ADB |
+| Command | What it does | Req. |
+|---------|-------------|------|
+| `display` | Show/set display settings (`--set brightness/dpi/timeout/rotation/font-scale --value N`) | ADB |
+| `color-profile --profile <name>` | Set color mode (natural/vivid/srgb) | ADB |
+| `audio` | Stream volumes with ASCII bars; set with `--set <stream> --volume N` | ADB |
+| `audio-route` | Active audio output path + connected Bluetooth devices | ADB |
 
-### Storage & Logs
+### Storage
 
-| Flag | What it does | Req. |
-|------|-------------|------|
-| `--storage-report` | Top-N largest dirs in /data/data/, /sdcard/ (use `--top-n`) | ADB |
-| `--apk-extract` | Pull APKs for all user apps → base_dir/apk_extract/ (`--include-system`) | ADB |
-| `--cache-clear` | Clear caches system-wide via pm trim-caches (`--package` for single) | ADB |
-| `--logcat` | Dump logcat to file (use `--package`, `--tag`, `--level`, `--lines`) | ADB |
-| `--bugreport` | Full adb bugreport ZIP (30–90 s) | ADB |
-| `--anr-dump` | Pull /data/anr/ + /data/tombstones/ | root |
-| `--history` | Flash operation history log (no device needed) | — |
+| Command | What it does | Req. |
+|---------|-------------|------|
+| `storage-report` | Top-N largest dirs in /data/data/, /sdcard/ (`--top N`) | ADB |
+| `apk-extract` | Pull APKs for all user apps (`--include-system`) | ADB |
+| `cache-clear` | Clear caches system-wide (`--package` for single app) | ADB |
 
 ### Input & Control
 
-| Flag | What it does | Req. |
-|------|-------------|------|
-| `--input` | Send input: `--tap X,Y` / `--swipe X1,Y1,X2,Y2[,ms]` / `--text STR` / `--keyevent CODE` | ADB |
-| `--locale` | Show/set language/timezone/time format (`--lang`, `--timezone`, `--hour24`) | ADB |
-| `--location` | Show/set location mode (`--mode`: off/gps/battery/on) + last position + app perms | ADB |
-| `--notifications` | List active notifications (`--package` to filter) | ADB |
-| `--clipboard` | Read clipboard; set with `--clip-text` (read blocked Android 10+ by OS) | ADB |
-| `--prop-get` | Read system property (`--key`; all if omitted) | ADB |
-| `--prop-set` | Write system property (`--key` and `--value`) | root |
-| `--performance` | Set CPU governor (`--profile`: performance/balanced/powersave) | root |
-| `--dev-options` | Developer Options menu; set with `--key/--value` | ADB |
-| `--screen-always-on` | Stay-awake while charging (`--screen-on on\|off`) | ADB |
+| Command | What it does | Req. |
+|---------|-------------|------|
+| `input` | Send input: `--tap X,Y` / `--swipe X1,Y1,X2,Y2` / `--text STR` / `--keyevent CODE` | ADB |
+| `locale` | Show/set language/timezone/time format (`--lang`, `--timezone`, `--24h`) | ADB |
+| `location` | Show/set location mode (`--mode`: off/device/battery/high) | ADB |
+| `notifications` | List active notifications (`--package` to filter) | ADB |
+| `clipboard` | Read clipboard; write with `--text <text>` | ADB |
+| `prop-get` | Read system property (`--key`; all if omitted) | ADB |
+| `prop-set --key K --value V` | Write system property | root |
+| `performance` | Set CPU governor (`--profile`: performance/balanced/powersave) | root |
+| `dev-options` | Developer Options menu; set with `--set/--value` | ADB |
+| `screen-always-on` | Stay-awake while charging (`--enable true\|false`) | ADB |
 
 ### Nothing-specific
 
-| Flag | What it does | Req. |
-|------|-------------|------|
-| `--glyph` | Glyph package, service state, settings, zone map (`--glyph-enable on\|off`) | ADB |
-| `--glyph-pattern` | Run Glyph light pattern (use `--pattern`: test/off/pulse/blink/wave) | ADB |
-| `--glyph-notify` | Glyph notification config + Hearthstone services | ADB |
-| `--nothing-settings` | Read/write Nothing settings (`--ns-key namespace:key`, `--ns-value`) | ADB |
-| `--essential-space` | Show/toggle Essential Space — Phone (2+) only (`--essential-enable`) | ADB |
+| Command | What it does | Req. |
+|---------|-------------|------|
+| `glyph` | Glyph package, service state, settings, zone map | ADB |
+| `glyph --enable on\|off` | Toggle Glyph interface | ADB |
+| `glyph-pattern --pattern <name>` | Run Glyph light pattern (pulse/blink/wave) | ADB |
+| `glyph-notify` | Glyph notification config + Hearthstone services | ADB |
+| `nothing-settings` | Read/write Nothing settings (`--set/--value`) | ADB |
+| `essential-space --enable true\|false` | Toggle Essential Space — Phone (2+) only | ADB |
 
 ---
 
-## Key modifier flags
+## Global flags
 
-| Flag | Used with |
-|------|-----------|
-| `--serial <s>` | All — target specific device |
-| `--package <pkg>` | `--logcat`, `--app-info`, `--kill-app`, `--launch-app`, `--permissions`, `--memory`, `--notifications`, `--cache-clear`, `--process-tree` |
-| `--watch` | `--thermal`, `--memory`, `--cpu-usage` |
-| `--top-n <N>` | `--storage-report`, `--cpu-usage` (default: 20) |
-| `--include-system` | `--apk-extract`, `--package-list` |
-| `--format text\|csv\|json` + `--output <path>` | `--package-list` |
-| `--restore-dir <p>` | `--restore`, `--verify-backup`, `--app-restore` |
-| `--restore-full` | `--restore` (includes preloader/tee/nvram — same device only) |
-| `--no-backup` | `--flash-firmware`, `--ota-update`, `--flash-patched` |
-| `--duration <N>` | `--screenrecord` (default: 30 s, max: 180 s) |
-| `--target <t>` | `--reboot` (system/bootloader/recovery/safe/download/sideload) |
-| `--key` / `--value` | `--prop-get/set`, `--dev-options`, `--display` |
-| `--stream <name\|N>` + `--volume <N>` | `--audio` (streams: voice/system/ring/media/alarm/notification) |
-| `--mode <m>` | `--color-profile` (natural/vivid/custom), `--location` (off/gps/battery/on) |
-| `--provider <p>` | `--dns-set` (off/cloudflare/adguard/google/quad9/hostname) |
-| `--forget <SSID\|ID>` | `--wifi-profiles` |
-| `--lang` / `--timezone` / `--hour24` | `--locale` |
-| `--whitelist-add/--whitelist-remove` | `--doze-status` |
-| `--clip-text <text>` | `--clipboard` |
-| `--limit <N>` | `--charging-control` (20–100%; custom kernel only) |
-| `--module-id <id>` + `--enable` | `--modules-toggle` |
-| `--pattern <name>` | `--glyph-pattern` |
-| `--ns-key <ns:key>` + `--ns-value <val>` | `--nothing-settings` |
-| `--install <ids>` | `--modules` (comma-sep IDs or `all`) |
-| `--remove <ids>` | `--debloat` (comma-sep IDs or `all`) |
-| `--packages <p>` | `--app-backup` (comma-sep package names) |
-| `--apk <path>` | `--sideload` |
-| `--downgrade` | `--sideload` |
-| `--encrypt` | `--backup` |
-| `--clear-cache` | `--kill-app` (also wipes app data) |
-| `--intent <uri>` | `--launch-app` |
-| `--screen-on on\|off` | `--screen-always-on` |
-| `--tap/--swipe/--text/--keyevent` | `--input` |
-| `--essential-enable/--no-essential-enable` | `--essential-space` |
-| `--glyph-enable on\|off` | `--glyph` |
+| Flag | Description |
+|------|-------------|
+| `-s, --serial <s>` | Target specific device by ADB serial |
 | `--base-dir <p>` | Override `~/tools/Nothing` storage root |
+| `--no-backup` | Skip automatic backup before flash |
 | `--force-download` | Re-download firmware even if cached |
 
 ---
 
 ## Known behaviors & gotchas
 
-- **`--screenrecord` on Phone (1)**: auto-scales to 720p (1080x2400 causes MediaCodec encoder error -38 on stock kernel)
-- **`--fix-biometric`**: effect is per-reboot only — re-run after restart
-- **`--charging-control`**: stock kernel does not expose sysfs charge limit node; shows clear "not supported" message on both Nothing Phone (1) and (3a) Lite
-- **`--color-profile` color mode**: returns n/a on stock Nothing OS (uses proprietary display keys not mapped to `display_color_mode`)
-- **`--clipboard` read**: blocked by Android 10+ OS policy; `--clip-text` to write works
-- **`--battery-stats` wakelock data**: only available after device has been in use since last charge (empty immediately after boot/charge)
-- **`--wifi-scan` RSSI format**: Android 12+ returns `-87(0:-93/1:-89)` — tool extracts the leading value
-- **Multi-SIM operator** (Phone 1 with no SIM): `getprop` returns comma-separated values; tool picks first non-empty entry
-- **`--doze-status` whitelist**: Android format is `system-excidle,pkg.name,uid` — deduplicated automatically
+- **`screenrecord` on Phone (1)**: auto-scales to 720p (encoder error -38 on stock kernel)
+- **`fix-biometric`**: effect is per-reboot only — re-run after restart
+- **`charging-control`**: stock kernel does not expose sysfs charge limit node
+- **`clipboard` read**: blocked by Android 10+ OS policy; `--text` to write works
+- **`battery-stats` wakelock data**: empty immediately after boot/charge
+- **`wifi-scan` RSSI format**: Android 12+ returns `-87(0:-93/1:-89)` — leading value extracted
 
 ---
 
@@ -205,22 +173,23 @@ Wraps `nothingctl.py` — a Python CLI tool for complete Nothing phone managemen
 ### OTA update with root preserved
 
 ```bash
-python <skill-dir>/nothingctl.py --ota-update
-# Downloads + Magisk CLI patches init_boot + flashes both A/B slots
+nothingctl ota-update
+# Downloads firmware → Magisk CLI patches init_boot → flashes both A/B slots
 ```
 
-### Manual firmware update (no root)
+### Manual firmware update
 
 ```bash
-python <skill-dir>/nothingctl.py --push-for-patch  # push stock boot to device
-# user patches in Magisk app
-python <skill-dir>/nothingctl.py --flash-patched   # flash patched image
+nothingctl push-for-patch   # push stock boot to device
+# user patches in Magisk app on device
+nothingctl flash-patched    # flash patched image
 ```
 
-### Broken fingerprint blocking Magisk
+### Safety backup before flash
 
 ```bash
-python <skill-dir>/nothingctl.py --fix-biometric   # force PIN auth (temporary)
+nothingctl backup
+nothingctl flash-firmware
 ```
 
 ---
@@ -230,8 +199,6 @@ python <skill-dir>/nothingctl.py --fix-biometric   # force PIN auth (temporary)
 ### Nothing Phone (3a) Lite (Galaxian / mt6878)
 - **SoC**: MediaTek Dimensity 7300 Pro — NOT Snapdragon
 - **Glyph package**: `com.nothing.hearthstone`
-- **Glyph toggle**: `am stopservice/startservice com.nothing.thirdparty/.GlyphService` (root)
-- **Glyph settings namespace**: `global` (not `secure`)
 - **Thermal**: MediaTek zone names; `-274000` millidegree sensors filtered automatically
 - **Essential Space / charging-control**: not available
 
@@ -253,7 +220,7 @@ python <skill-dir>/nothingctl.py --fix-biometric   # force PIN auth (temporary)
 
 ## ARB (Anti-Rollback Protection)
 
-Checked before `--flash-firmware` and `--ota-update`. Reads `rollback_index` from
+Checked before `flash-firmware` and `ota-update`. Reads `rollback_index` from
 `vbmeta.img` (offset 112, big-endian uint64). Blocks flash if firmware ARB index
 < device ARB index — would cause permanent boot loop.
 
@@ -264,25 +231,25 @@ Checked before `--flash-firmware` and `--ota-update`. Reads `rollback_index` fro
 ```
 ~/tools/Nothing/
   <Codename>/
-    <Codename>_<Tag>/         ← firmware archive (init_boot.img / boot.img / vbmeta.img)
+    <Codename>_<Tag>/         ← firmware archive
     Backups/
       partition-backup/backup_<ts>/   ← 31 × .img + checksums.sha256
-      apk_extract/                    ← --apk-extract and --app-backup APKs
+      apk_extract/
       app_backups/<ts>/               ← *_data.tar.gz per package
-    logs/                             ← --logcat
-    bugreports/                       ← --bugreport
-    diagnostics/<ts>/anr|tombstones/  ← --anr-dump
+    logs/
+    bugreports/
+    diagnostics/<ts>/anr|tombstones/
   modules/                            ← Magisk modules (shared)
-  flash_history.json                  ← --history log
+  flash_history.json
 ```
 
 ---
 
 ## Safety rules
 
-1. Run default mode first — confirm firmware + Magisk state before any flash.
-2. `--backup` before every flash — auto-runs if root available.
-3. Never `--restore-full` unless on the exact same device unit.
+1. Run `root-status` + `info` first — confirm state before any flash.
+2. `backup` before every flash — auto-runs if root available.
+3. Never `restore` to a different device unit than the one backed up from.
 4. Use `--serial` when multiple devices are connected.
 5. Phone (2+): patch target is `init_boot.img`. Phone (1): `boot.img`.
 6. ARB is fuse-burned — the tool enforces this automatically.

@@ -5,9 +5,9 @@ __pycache__/
 *.pyd
 
 # Distribution / packaging
-dist/
 build/
 *.egg-info/
+dist/
 
 # Virtual environments
 .venv/
@@ -28,3 +28,13 @@ Thumbs.db
 
 # Project tracking
 TODO.md
+
+# Go build artifacts
+go/internal/data/debloat.json
+go/internal/data/modules.json
+nothingctl
+nothingctl.exe
+
+# Screenshots and recordings captured during testing
+screenshots/
+recordings/
