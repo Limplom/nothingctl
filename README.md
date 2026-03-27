@@ -284,14 +284,35 @@ nothingctl -s <serial> backup
 
 ## Building from source
 
+Requires [Go 1.22+](https://go.dev/dl/) and `adb`/`fastboot` in PATH.
+
 ```bash
 git clone https://github.com/Limplom/nothingctl
 cd nothingctl/go
-make build        # → ../nothingctl-go (or .exe on Windows)
-make dist         # → ../dist/ for all platforms
+
+# Build for your current platform
+go run ./cmd/nothingctl/ --help          # run without installing
+go build -o ../nothingctl ./cmd/nothingctl/   # build binary
+
+# Or use make (Linux / macOS / Git Bash on Windows)
+make build        # → ../nothingctl
+make dist         # → ../dist/ for all 5 platforms
 ```
 
-Requires Go 1.22+.
+### Manual cross-compilation
+
+```bash
+# Windows (from Linux/macOS)
+GOOS=windows GOARCH=amd64 go build -o nothingctl.exe ./cmd/nothingctl/
+
+# Linux ARM64 (e.g. Raspberry Pi, Apple Silicon Linux)
+GOOS=linux GOARCH=arm64 go build -o nothingctl ./cmd/nothingctl/
+
+# macOS Apple Silicon
+GOOS=darwin GOARCH=arm64 go build -o nothingctl ./cmd/nothingctl/
+```
+
+All commands must be run from the `go/` directory. The `debloat.json` and `modules.json` data files are embedded at compile time — the resulting binary has no runtime file dependencies.
 
 ---
 
