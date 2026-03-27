@@ -1,10 +1,28 @@
 # nothingctl — Claude Code Instructions
 
+## After every code change — device test
+
+After any code change, always run a live test against a connected device before pushing:
+
+```bash
+adb devices                          # confirm device is present
+go run ./cmd/nothingctl/ info        # baseline: device detection + prop helpers
+go run ./cmd/nothingctl/ battery     # battery package
+go run ./cmd/nothingctl/ root-status # magisk / root detection
+go run ./cmd/nothingctl/ check-update # GitHub API + codename resolve
+```
+
+Test commands that were directly changed. If no device is available, note it explicitly in the commit message. Never push untested code silently.
+
+---
+
 ## Before every `git push`
 
 - Run `go build ./...` from `go/` and confirm it compiles cleanly.
-- If new commands were added or existing ones changed, test them against a connected device (or confirm no device is available and note it).
+- Run the device tests above (or document why they were skipped).
 - Never push broken code. Fix compile errors and obvious regressions first.
+
+---
 
 ## Before pushing a new release tag (`v*`)
 
@@ -24,11 +42,37 @@
 3. **Attach all 5 binaries** + `checksums.txt` to the release.
 4. Push the tag **only after** the binaries are confirmed to build cleanly.
 
+---
+
 ## After every release push
 
 - Check the GitHub Actions "Release" workflow run via `gh run list --limit 5`.
 - If the workflow fails, investigate the error, fix it, and re-trigger (move the tag if needed) before considering the release done.
 - Do not close the task until the workflow shows ✓ success and the release assets are visible on GitHub.
+
+---
+
+## Multi-agent workflow for non-trivial tasks
+
+For optimizations, refactoring, new features, or any task that touches multiple packages, always use multiple agents:
+
+| Role | Minimum | Responsibility |
+|------|---------|----------------|
+| **Planner** | 1 | Explore the codebase, design the approach, identify risks, produce a step-by-step plan before any code is written. Uses the `Plan` subagent. |
+| **Coder** | 2 | Implement the plan in parallel where possible (e.g. one per package group). Uses the `general-purpose` subagent with `isolation: worktree`. |
+
+**When to apply:**
+- Adding a new command or feature
+- Refactoring across multiple files or packages
+- Performance or code-quality improvements
+- Any change that affects more than 3 files
+
+**Process:**
+1. Launch a `Plan` agent first — get the full plan and file list before opening any editors.
+2. Launch 2+ `general-purpose` coder agents (in parallel if the work is independent).
+3. Review each agent's diff, then compile + device-test before committing.
+
+---
 
 ## Go environment (Windows)
 
