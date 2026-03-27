@@ -32,8 +32,8 @@ TODO.md
 # Go build artifacts
 go/internal/data/debloat.json
 go/internal/data/modules.json
-nothingctl
-nothingctl.exe
+/nothingctl
+/nothingctl.exe
 
 # Screenshots and recordings captured during testing
 screenshots/
