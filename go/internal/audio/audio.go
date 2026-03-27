@@ -50,11 +50,6 @@ var deviceLabels = map[string]string{
 
 const barWidth = 20
 
-func shellStr(serial, cmd string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
-
 func resolveStream(s string) (int, error) {
 	var sid int
 	if _, err := fmt.Sscanf(s, "%d", &sid); err == nil {
@@ -74,7 +69,7 @@ func resolveStream(s string) (int, error) {
 var volRe = regexp.MustCompile(`volume is\s+(\d+)\s+in range\s+\[(\d+)\.\.(\d+)\]`)
 
 func getStreamVolume(serial string, streamID int) (int, int, error) {
-	output := shellStr(serial, fmt.Sprintf("cmd media_session volume --stream %d --get", streamID))
+	output := adb.ShellStr(serial, fmt.Sprintf("cmd media_session volume --stream %d --get", streamID))
 	if m := volRe.FindStringSubmatch(output); m != nil {
 		var cur, max int
 		fmt.Sscanf(m[1], "%d", &cur)
@@ -165,7 +160,7 @@ var connStateRe = regexp.MustCompile(`connectionState:\s*2`)
 
 // ActionAudioRoute shows active audio output path and connected Bluetooth audio devices.
 func ActionAudioRoute(serial, model string) error {
-	audioDump := shellStr(serial, "dumpsys audio")
+	audioDump := adb.ShellStr(serial, "dumpsys audio")
 
 	activeOutput := "Unknown"
 
@@ -236,7 +231,7 @@ func ActionAudioRoute(serial, model string) error {
 	}
 
 	// Bluetooth devices
-	btDump := shellStr(serial, "dumpsys bluetooth_manager")
+	btDump := adb.ShellStr(serial, "dumpsys bluetooth_manager")
 	type btDevice struct {
 		name, profile, state string
 	}

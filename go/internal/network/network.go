@@ -19,26 +19,6 @@ var dnsAliases = map[string]string{
 	"quad9":      "dns.quad9.net",
 }
 
-func shell(serial, cmd string) string {
-	stdout, _, code := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
-	if code != 0 {
-		return ""
-	}
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
-
-func setting(serial, namespace, key string) string {
-	stdout, _, code := adb.Run([]string{"adb", "-s", serial, "shell", "settings", "get", namespace, key})
-	if code != 0 {
-		return ""
-	}
-	val := strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-	if val == "null" || val == "null\r" {
-		return ""
-	}
-	return val
-}
-
 var ssidRe      = regexp.MustCompile(`SSID:\s*"([^"]*)"`)
 var bssidRe     = regexp.MustCompile(`BSSID:\s*([0-9a-fA-F:]{17})`)
 var rssiRe      = regexp.MustCompile(`RSSI:\s*(-?\d+)`)
@@ -51,7 +31,7 @@ var ndcDNSRe    = regexp.MustCompile(`DNS servers:\s*(.+)`)
 
 // ActionNetworkInfo displays network information.
 func ActionNetworkInfo(serial, model string) error {
-	wifiRaw := shell(serial, "cmd wifi status")
+	wifiRaw := adb.ShellStr(serial, "cmd wifi status")
 
 	var ssid, bssid, rssi, linkSpeed, freq, ipWifi string
 
@@ -84,7 +64,7 @@ func ActionNetworkInfo(serial, model string) error {
 
 	// Fallback IP from ip addr show wlan0
 	if ipWifi == "" {
-		wlanRaw := shell(serial, "ip addr show wlan0")
+		wlanRaw := adb.ShellStr(serial, "ip addr show wlan0")
 		if m := inetRe.FindStringSubmatch(wlanRaw); m != nil {
 			ipWifi = m[1]
 		}
@@ -106,7 +86,7 @@ func ActionNetworkInfo(serial, model string) error {
 	}
 
 	// DNS servers
-	dnsRaw := shell(serial, "getprop | grep -E 'net\\.dns[12]|dhcp.*dns'")
+	dnsRaw := adb.ShellStr(serial, "getprop | grep -E 'net\\.dns[12]|dhcp.*dns'")
 	var dnsServers []string
 	for _, line := range strings.Split(dnsRaw, "\n") {
 		line = strings.TrimRight(line, "\r")
@@ -117,7 +97,7 @@ func ActionNetworkInfo(serial, model string) error {
 		}
 	}
 	if len(dnsServers) == 0 {
-		ndcRaw := shell(serial, "ndc resolver getnetworkinfo 100")
+		ndcRaw := adb.ShellStr(serial, "ndc resolver getnetworkinfo 100")
 		for _, line := range strings.Split(ndcRaw, "\n") {
 			line = strings.TrimRight(line, "\r")
 			if m := ndcDNSRe.FindStringSubmatch(line); m != nil {
@@ -132,12 +112,12 @@ func ActionNetworkInfo(serial, model string) error {
 	}
 
 	// Private DNS
-	pdnsMode := setting(serial, "global", "private_dns_mode")
-	pdnsProvider := setting(serial, "global", "private_dns_specifier")
+	pdnsMode := adb.Setting(serial, "global", "private_dns_mode")
+	pdnsProvider := adb.Setting(serial, "global", "private_dns_specifier")
 
 	// Mobile network
-	operator := shell(serial, "getprop gsm.operator.alpha")
-	netType := shell(serial, "getprop gsm.network.type")
+	operator := adb.ShellStr(serial, "getprop gsm.operator.alpha")
+	netType := adb.ShellStr(serial, "getprop gsm.network.type")
 
 	// Handle comma-separated multi-SIM values
 	if strings.Contains(operator, ",") {
@@ -158,7 +138,7 @@ func ActionNetworkInfo(serial, model string) error {
 	}
 
 	// Active connection type
-	connRaw := shell(serial, "dumpsys connectivity | grep -E 'NetworkAgentInfo.*CONNECTED|activeNetwork'")
+	connRaw := adb.ShellStr(serial, "dumpsys connectivity | grep -E 'NetworkAgentInfo.*CONNECTED|activeNetwork'")
 	connType := "Unknown"
 	upper := strings.ToUpper(connRaw)
 	switch {
@@ -250,8 +230,8 @@ func ActionNetworkInfo(serial, model string) error {
 func ActionDNSSet(serial, model, provider string) error {
 	if provider == "" {
 		// Read-only mode
-		mode := setting(serial, "global", "private_dns_mode")
-		specifier := setting(serial, "global", "private_dns_specifier")
+		mode := adb.Setting(serial, "global", "private_dns_mode")
+		specifier := adb.Setting(serial, "global", "private_dns_specifier")
 
 		fmt.Printf("\n  Private DNS \u2014 %s\n\n", model)
 		modeDisplay := "off"

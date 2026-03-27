@@ -27,11 +27,6 @@ func putSetting(serial, namespace, key, value string) error {
 	return nil
 }
 
-func shellStr(serial, cmd string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
-
 func fmtTimeout(msStr string) string {
 	var ms int
 	if _, err := fmt.Sscanf(msStr, "%d", &ms); err != nil {
@@ -163,11 +158,11 @@ func ActionDisplay(serial, model, key, value string) error {
 		return nil
 	}
 
-	sizeRaw := shellStr(serial, "wm size")
+	sizeRaw := adb.ShellStr(serial, "wm size")
 	resolution := parseWMSize(sizeRaw)
-	densityRaw := shellStr(serial, "wm density")
+	densityRaw := adb.ShellStr(serial, "wm density")
 	dpi := parseWMDensity(densityRaw)
-	displayDump := shellStr(serial, "dumpsys display | grep -E 'mRefreshRate|refreshRate'")
+	displayDump := adb.ShellStr(serial, "dumpsys display | grep -E 'mRefreshRate|refreshRate'")
 	refreshRate := parseRefreshRate(displayDump)
 
 	brightness := getSetting(serial, "system", "screen_brightness")

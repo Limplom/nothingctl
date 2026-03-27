@@ -10,20 +10,6 @@ import (
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
 )
 
-func shell(serial, cmd string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
-
-func setting(serial, namespace, key string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "settings", "get", namespace, key})
-	val := strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-	if val == "null" || val == "null\r" {
-		return ""
-	}
-	return val
-}
-
 var stateLabels = map[string]string{
 	"S": "Sleeping",
 	"R": "Running",
@@ -79,11 +65,11 @@ func isSystem(user string) bool {
 
 // ActionProcessTree shows process list, optionally filtered by package name.
 func ActionProcessTree(serial, packageName string) error {
-	raw := shell(serial, "ps -A -o PID,PPID,USER,NAME,S")
+	raw := adb.ShellStr(serial, "ps -A -o PID,PPID,USER,NAME,S")
 	if raw == "" {
 		return nterrors.AdbError("Failed to retrieve process list from device.")
 	}
-	model := shell(serial, "getprop ro.product.model")
+	model := adb.ShellStr(serial, "getprop ro.product.model")
 	procs := parsePS(raw)
 
 	fmt.Printf("\n  Process Tree \u2014 %s\n", model)
@@ -257,10 +243,10 @@ func parseWhitelist(output string) []string {
 
 // ActionDozeStatus shows Doze mode status and manages the battery-optimization whitelist.
 func ActionDozeStatus(serial, whitelistAdd, whitelistRemove string) error {
-	model := shell(serial, "getprop ro.product.model")
+	model := adb.ShellStr(serial, "getprop ro.product.model")
 
 	if whitelistAdd != "" {
-		result := shell(serial, "dumpsys deviceidle whitelist +"+whitelistAdd)
+		result := adb.ShellStr(serial, "dumpsys deviceidle whitelist +"+whitelistAdd)
 		fmt.Printf("\n  Whitelist add: %s\n", whitelistAdd)
 		if result != "" {
 			fmt.Printf("  Response: %s\n", result)
@@ -270,7 +256,7 @@ func ActionDozeStatus(serial, whitelistAdd, whitelistRemove string) error {
 		fmt.Println()
 	}
 	if whitelistRemove != "" {
-		result := shell(serial, "dumpsys deviceidle whitelist -"+whitelistRemove)
+		result := adb.ShellStr(serial, "dumpsys deviceidle whitelist -"+whitelistRemove)
 		fmt.Printf("\n  Whitelist remove: %s\n", whitelistRemove)
 		if result != "" {
 			fmt.Printf("  Response: %s\n", result)
@@ -280,9 +266,9 @@ func ActionDozeStatus(serial, whitelistAdd, whitelistRemove string) error {
 		fmt.Println()
 	}
 
-	deviceidleDump := shell(serial, "dumpsys deviceidle")
-	whitelistRaw := shell(serial, "dumpsys deviceidle whitelist")
-	batteryDump := shell(serial, "dumpsys battery")
+	deviceidleDump := adb.ShellStr(serial, "dumpsys deviceidle")
+	whitelistRaw := adb.ShellStr(serial, "dumpsys deviceidle whitelist")
+	batteryDump := adb.ShellStr(serial, "dumpsys battery")
 
 	state := parseDozeState(deviceidleDump)
 	lightState := parseLightState(deviceidleDump)
@@ -457,7 +443,7 @@ func formatCoord(lat, lon float64) string {
 
 // ActionLocation shows GPS/location status and optionally sets the location mode.
 func ActionLocation(serial, mode string) error {
-	model := shell(serial, "getprop ro.product.model")
+	model := adb.ShellStr(serial, "getprop ro.product.model")
 
 	if mode != "" {
 		numeric, ok := modeMap[strings.ToLower(mode)]
@@ -477,9 +463,9 @@ func ActionLocation(serial, mode string) error {
 		return nil
 	}
 
-	rawMode := setting(serial, "secure", "location_mode")
-	locationDump := shell(serial, "dumpsys location")
-	appopsOut := shell(serial, "cmd appops query-op android:fine_location allow")
+	rawMode := adb.Setting(serial, "secure", "location_mode")
+	locationDump := adb.ShellStr(serial, "dumpsys location")
+	appopsOut := adb.ShellStr(serial, "cmd appops query-op android:fine_location allow")
 
 	modeLabel, ok := locationModes[rawMode]
 	if !ok {

@@ -50,13 +50,6 @@ var zoneSettingMap = map[string][2]string{
 	"Pocket mode": {"global", "glyph_pocket_mode_state"},
 }
 
-func shellStr(serial, cmd string) string {
-	stdout, _, code := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
-	if code != 0 {
-		return ""
-	}
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
 
 func detectPkg(serial string) string {
 	for _, pkg := range []string{glyphPkgNew, glyphPkgLegacy} {
@@ -74,7 +67,7 @@ func isLegacy(pkg string) bool {
 }
 
 func glyphServiceRunning(serial, pkg string) bool {
-	out := shellStr(serial, fmt.Sprintf(
+	out := adb.ShellStr(serial, fmt.Sprintf(
 		"dumpsys activity services %s 2>/dev/null | grep -c ServiceRecord", pkg))
 	return out != "" && out != "0"
 }

@@ -12,16 +12,9 @@ import (
 
 const maxNotifications = 50
 
-func shellStr(serial, cmd string) string {
-	stdout, _, code := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
-	if code != 0 {
-		return ""
-	}
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
 
 func getSDK(serial string) int {
-	raw := shellStr(serial, "getprop ro.build.version.sdk")
+	raw := adb.ShellStr(serial, "getprop ro.build.version.sdk")
 	var sdk int
 	fmt.Sscanf(raw, "%d", &sdk)
 	return sdk

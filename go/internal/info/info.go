@@ -28,16 +28,6 @@ var socNames = map[string]string{
 	"pineapple": "Snapdragon 8 Gen 3",
 }
 
-func prop(serial, p string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop " + p})
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
-
-func shell(serial, cmd string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
-
 func kbToGB(kb int64) string {
 	return fmt.Sprintf("%.1f GB", float64(kb)/1024/1024)
 }
@@ -84,8 +74,8 @@ func parseDf(output string) string {
 }
 
 func resolveSOC(serial string) string {
-	platform := strings.ToLower(prop(serial, "ro.board.platform"))
-	board := strings.ToLower(prop(serial, "ro.product.board"))
+	platform := strings.ToLower(adb.Prop(serial, "ro.board.platform"))
+	board := strings.ToLower(adb.Prop(serial, "ro.product.board"))
 	for _, raw := range []string{platform, board} {
 		if name, ok := socNames[raw]; ok {
 			return fmt.Sprintf("%s (%s)", raw, name)
@@ -117,7 +107,7 @@ func imei(serial string) string {
 		}
 		return d
 	}
-	sn := prop(serial, "ro.serialno")
+	sn := adb.Prop(serial, "ro.serialno")
 	if sn != "" {
 		return sn + "  (serial number, IMEI unavailable)"
 	}
@@ -126,42 +116,42 @@ func imei(serial string) string {
 
 // ActionInfo prints a comprehensive device dashboard for the connected Nothing phone.
 func ActionInfo(serial string) error {
-	model := prop(serial, "ro.product.model")
+	model := adb.Prop(serial, "ro.product.model")
 	if model == "" {
 		model = "Unknown"
 	}
-	codename := prop(serial, "ro.product.device")
+	codename := adb.Prop(serial, "ro.product.device")
 	if codename == "" {
-		codename = prop(serial, "ro.build.product")
+		codename = adb.Prop(serial, "ro.build.product")
 	}
 
-	androidVer := prop(serial, "ro.build.version.release")
+	androidVer := adb.Prop(serial, "ro.build.version.release")
 	if androidVer == "" {
 		androidVer = "not available"
 	}
-	firmware := prop(serial, "ro.build.display.id")
+	firmware := adb.Prop(serial, "ro.build.display.id")
 	if firmware == "" {
 		firmware = "not available"
 	}
-	securityPatch := prop(serial, "ro.build.version.security_patch")
+	securityPatch := adb.Prop(serial, "ro.build.version.security_patch")
 	if securityPatch == "" {
 		securityPatch = "not available"
 	}
-	kernel := shell(serial, "uname -r")
+	kernel := adb.ShellStr(serial, "uname -r")
 	if kernel == "" {
 		kernel = "not available"
 	}
 
 	soc := resolveSOC(serial)
 
-	meminfoRaw := shell(serial, "cat /proc/meminfo | grep MemTotal")
+	meminfoRaw := adb.ShellStr(serial, "cat /proc/meminfo | grep MemTotal")
 	ram := "not available"
 	if meminfoRaw != "" {
 		ram = parseMeminfo(meminfoRaw)
 	}
 
-	dfData := shell(serial, "df /data | tail -1")
-	dfSdcard := shell(serial, "df /sdcard | tail -1")
+	dfData := adb.ShellStr(serial, "df /data | tail -1")
+	dfSdcard := adb.ShellStr(serial, "df /sdcard | tail -1")
 	storageData := "not available"
 	storageSdcard := "not available"
 	if dfData != "" {
@@ -171,11 +161,11 @@ func ActionInfo(serial string) error {
 		storageSdcard = parseDf(dfSdcard)
 	}
 
-	serialNum := prop(serial, "ro.serialno")
+	serialNum := adb.Prop(serial, "ro.serialno")
 	if serialNum == "" {
 		serialNum = "not available"
 	}
-	bootloader := prop(serial, "ro.bootloader")
+	bootloader := adb.Prop(serial, "ro.bootloader")
 	if bootloader == "" {
 		bootloader = "not available"
 	}
@@ -186,7 +176,7 @@ func ActionInfo(serial string) error {
 		adbMode = "Wireless (TCP/IP)"
 	}
 
-	currentSlot := prop(serial, "ro.boot.slot_suffix")
+	currentSlot := adb.Prop(serial, "ro.boot.slot_suffix")
 	if currentSlot == "" {
 		currentSlot = "not available"
 	} else {

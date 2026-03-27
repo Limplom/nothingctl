@@ -101,14 +101,14 @@ func parseScanResults(output string) []wifiNetwork {
 
 // ActionWifiScan scans and lists nearby WiFi networks sorted by signal strength.
 func ActionWifiScan(serial, model string) error {
-	raw := shell(serial, "cmd wifi list-scan-results")
+	raw := adb.ShellStr(serial, "cmd wifi list-scan-results")
 	networks := parseScanResults(raw)
 
 	if len(networks) == 0 {
 		// Trigger a fresh scan and retry
-		shell(serial, "cmd wifi start-scan")
+		adb.ShellStr(serial, "cmd wifi start-scan")
 		time.Sleep(3 * time.Second)
-		raw = shell(serial, "cmd wifi list-scan-results")
+		raw = adb.ShellStr(serial, "cmd wifi list-scan-results")
 		networks = parseScanResults(raw)
 	}
 
@@ -183,9 +183,9 @@ func parseSavedNetworks(raw string) []savedNetwork {
 // ActionWifiProfiles lists saved WiFi networks or forgets one by SSID/ID.
 // forget="" means list mode; forget="<ssid or id>" to remove.
 func ActionWifiProfiles(serial, model, forget string) error {
-	raw := shell(serial, "cmd wifi list-networks")
+	raw := adb.ShellStr(serial, "cmd wifi list-networks")
 	if raw == "" {
-		raw = shell(serial, "cmd wifi list-saved-networks")
+		raw = adb.ShellStr(serial, "cmd wifi list-saved-networks")
 	}
 
 	networks := parseSavedNetworks(raw)

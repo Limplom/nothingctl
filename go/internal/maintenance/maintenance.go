@@ -10,13 +10,6 @@ import (
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
 )
 
-func shellStr(serial, cmd string) string {
-	stdout, _, code := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
-	if code != 0 {
-		return ""
-	}
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
 
 func settingGet(serial, namespace, key string) string {
 	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "settings", "get", namespace, key})
@@ -126,7 +119,7 @@ func ActionCacheClear(serial, model, packageName string) error {
 var utcOffsetRe = regexp.MustCompile(`^([+-])(\d{2})(\d{2})$`)
 
 func getUTCOffset(serial string) string {
-	raw := shellStr(serial, "date +%z")
+	raw := adb.ShellStr(serial, "date +%z")
 	m := utcOffsetRe.FindStringSubmatch(strings.TrimSpace(raw))
 	if m == nil {
 		return ""
@@ -195,19 +188,19 @@ func ActionLocale(serial, model, lang, timezone string, hour24 *bool) error {
 	}
 
 	// Read current state
-	localeVal := shellStr(serial, "getprop persist.sys.locale")
+	localeVal := adb.ShellStr(serial, "getprop persist.sys.locale")
 	if localeVal == "" {
 		localeVal = settingGet(serial, "system", "system_locales")
 	}
 	if localeVal == "" {
-		localeVal = shellStr(serial, "getprop ro.product.locale")
+		localeVal = adb.ShellStr(serial, "getprop ro.product.locale")
 	}
 	langDisplay := localeVal
 	if langDisplay == "" {
 		langDisplay = "(not available)"
 	}
 
-	tzVal := shellStr(serial, "getprop persist.sys.timezone")
+	tzVal := adb.ShellStr(serial, "getprop persist.sys.timezone")
 	utcLabel := getUTCOffset(serial)
 	tzDisplay := tzVal
 	if tzVal != "" && utcLabel != "" {

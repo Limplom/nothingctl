@@ -209,3 +209,32 @@ func EnsureDevice(serial string) (string, error) {
 
 	return strings.Fields(lines[0])[0], nil
 }
+
+// ---------------------------------------------------------------------------
+// Convenience helpers — error-ignoring single-value wrappers
+// ---------------------------------------------------------------------------
+
+// ShellStr runs a shell command and returns trimmed stdout. Returns "" on
+// non-zero exit. Use AdbShell when you need the error.
+func ShellStr(serial, cmd string) string {
+	stdout, _, code := Run([]string{"adb", "-s", serial, "shell", cmd})
+	if code != 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
+}
+
+// Prop reads a single system property via getprop. Returns "" if unset.
+func Prop(serial, key string) string {
+	return ShellStr(serial, "getprop "+key)
+}
+
+// Setting reads a value from the Android settings provider (system/secure/global).
+// Returns "" if unset or if the value is the literal string "null".
+func Setting(serial, namespace, key string) string {
+	val := ShellStr(serial, "settings get "+namespace+" "+key)
+	if val == "null" {
+		return ""
+	}
+	return val
+}

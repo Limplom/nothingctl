@@ -10,11 +10,6 @@ import (
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
 )
 
-func shellStr(serial, cmd string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
-	return strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-}
-
 func secondsToHMS(seconds float64) string {
 	total := int(seconds)
 	h := total / 3600
@@ -110,7 +105,7 @@ func parseBatterystats(output string) []appDrain {
 
 // ActionBatteryStats shows per-app battery drain (wakelock times) and charge cycles.
 func ActionBatteryStats(serial string) error {
-	model := shellStr(serial, "getprop ro.product.model")
+	model := adb.ShellStr(serial, "getprop ro.product.model")
 
 	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "dumpsys battery"})
 	fields := parseDumpsysBattery(stdout)
@@ -164,7 +159,7 @@ func ActionBatteryStats(serial string) error {
 		voltageStr = fmt.Sprintf("%.2f V", float64(voltageRaw)/1000)
 	}
 
-	cycleRaw := shellStr(serial, "cat /sys/class/power_supply/battery/cycle_count 2>/dev/null")
+	cycleRaw := adb.ShellStr(serial, "cat /sys/class/power_supply/battery/cycle_count 2>/dev/null")
 	cycleStr := "(not available on this device)"
 	if cycleRaw != "" {
 		var n int
@@ -175,7 +170,7 @@ func ActionBatteryStats(serial string) error {
 		}
 	}
 
-	baseband := shellStr(serial, "getprop gsm.version.baseband")
+	baseband := adb.ShellStr(serial, "getprop gsm.version.baseband")
 	if strings.Contains(baseband, ",") {
 		for _, b := range strings.Split(baseband, ",") {
 			b = strings.TrimSpace(b)
@@ -229,12 +224,12 @@ var chargeLimitPaths = []string{
 
 // ActionChargingControl reads or sets the charge limit via sysfs.
 func ActionChargingControl(serial string, limit int) error {
-	model := shellStr(serial, "getprop ro.product.model")
+	model := adb.ShellStr(serial, "getprop ro.product.model")
 
 	// Detect which sysfs path exists
 	activePath := ""
 	for _, path := range chargeLimitPaths {
-		probe := shellStr(serial, fmt.Sprintf("[ -f %s ] && echo yes || echo no", path))
+		probe := adb.ShellStr(serial, fmt.Sprintf("[ -f %s ] && echo yes || echo no", path))
 		if probe == "yes" {
 			activePath = path
 			break
@@ -255,7 +250,7 @@ func ActionChargingControl(serial string, limit int) error {
 
 	// Read-only mode (limit == 0 means read)
 	if limit == 0 {
-		current := shellStr(serial, fmt.Sprintf("cat %s 2>/dev/null", activePath))
+		current := adb.ShellStr(serial, fmt.Sprintf("cat %s 2>/dev/null", activePath))
 		fmt.Printf("\n  Charge Limit \u2014 %s\n\n", model)
 		if current != "" {
 			var pct int
@@ -286,7 +281,7 @@ func ActionChargingControl(serial string, limit int) error {
 		return nterrors.AdbError(fmt.Sprintf("Failed to set charge limit to %d %% on %s.\n  Root access is required. Error: %s", limit, model, err))
 	}
 
-	verify := shellStr(serial, fmt.Sprintf("cat %s 2>/dev/null", activePath))
+	verify := adb.ShellStr(serial, fmt.Sprintf("cat %s 2>/dev/null", activePath))
 	var written int
 	hasWritten := false
 	if _, err := fmt.Sscanf(verify, "%d", &written); err == nil {
