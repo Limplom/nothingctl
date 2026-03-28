@@ -56,31 +56,13 @@ var menuOrder = []string{
 	"bg_process_limit",
 }
 
-func getSetting(serial, namespace, key string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "settings", "get", namespace, key})
-	val := strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-	if val == "null" || val == "null\r" || val == "null\n" {
-		return ""
-	}
-	return val
-}
-
-func putSetting(serial, namespace, key, value string) error {
-	_, stderr, code := adb.Run([]string{"adb", "-s", serial, "shell",
-		"settings", "put", namespace, key, value})
-	if code != 0 {
-		return nterrors.AdbError(fmt.Sprintf("settings put %s %s %s failed: %s",
-			namespace, key, value, strings.TrimSpace(stderr)))
-	}
-	return nil
-}
 
 func currentValueForOption(serial, key string) string {
 	opt := options[key]
 	if len(opt.settings) == 0 {
 		return "(not set)"
 	}
-	val := getSetting(serial, opt.settings[0].namespace, opt.settings[0].key)
+	val := adb.Setting(serial, opt.settings[0].namespace, opt.settings[0].key)
 	if val == "" {
 		return "(not set)"
 	}
@@ -90,7 +72,7 @@ func currentValueForOption(serial, key string) string {
 func applyOption(serial, key string) error {
 	opt := options[key]
 	for _, s := range opt.settings {
-		if err := putSetting(serial, s.namespace, s.key, s.value); err != nil {
+		if err := adb.PutSetting(serial, s.namespace, s.key, s.value); err != nil {
 			return err
 		}
 	}
@@ -116,7 +98,7 @@ func ActionDevOptions(serial, model, key, value string) error {
 		if err != nil {
 			return err
 		}
-		if err := putSetting(serial, ns, settingKey, value); err != nil {
+		if err := adb.PutSetting(serial, ns, settingKey, value); err != nil {
 			return err
 		}
 		fmt.Printf("  [OK] settings put %s %s = %s  [%s]\n", ns, settingKey, value, model)
@@ -133,7 +115,7 @@ func ActionDevOptions(serial, model, key, value string) error {
 		if err != nil {
 			return err
 		}
-		current := getSetting(serial, ns, settingKey)
+		current := adb.Setting(serial, ns, settingKey)
 		if current == "" {
 			current = "(not set)"
 		}
@@ -196,8 +178,8 @@ func showMenu(serial, model string) error {
 // ActionScreenAlwaysOn controls the 'stay on while plugged in' setting.
 // enable=nil -> show status; enable=true -> on; enable=false -> off
 func ActionScreenAlwaysOn(serial, model string, enable *bool) error {
-	stayVal := getSetting(serial, "global", "stay_on_while_plugged_in")
-	timeoutMs := getSetting(serial, "system", "screen_off_timeout")
+	stayVal := adb.Setting(serial, "global", "stay_on_while_plugged_in")
+	timeoutMs := adb.Setting(serial, "system", "screen_off_timeout")
 
 	if enable == nil {
 		fmt.Printf("\n  Screen Always On \u2014 %s\n\n", model)
@@ -253,12 +235,12 @@ func ActionScreenAlwaysOn(serial, model string, enable *bool) error {
 	}
 
 	if *enable {
-		if err := putSetting(serial, "global", "stay_on_while_plugged_in", "3"); err != nil {
+		if err := adb.PutSetting(serial, "global", "stay_on_while_plugged_in", "3"); err != nil {
 			return err
 		}
 		fmt.Printf("  [OK] Screen stays on while plugged in (AC + USB + Wireless)  [%s]\n", model)
 	} else {
-		if err := putSetting(serial, "global", "stay_on_while_plugged_in", "0"); err != nil {
+		if err := adb.PutSetting(serial, "global", "stay_on_while_plugged_in", "0"); err != nil {
 			return err
 		}
 		fmt.Printf("  [OK] Screen always-on disabled (normal timeout restored)  [%s]\n", model)

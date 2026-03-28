@@ -4,6 +4,7 @@ package info
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/Limplom/nothingctl/internal/adb"
 )
@@ -116,60 +117,132 @@ func imei(serial string) string {
 
 // ActionInfo prints a comprehensive device dashboard for the connected Nothing phone.
 func ActionInfo(serial string) error {
-	model := adb.Prop(serial, "ro.product.model")
-	if model == "" {
-		model = "Unknown"
-	}
-	codename := adb.Prop(serial, "ro.product.device")
-	if codename == "" {
-		codename = adb.Prop(serial, "ro.build.product")
-	}
+	var (
+		model, codename                    string
+		androidVer, firmware, securityPatch string
+		kernel, soc                        string
+		ram                                string
+		storageData, storageSdcard         string
+		serialNum, bootloader, imeiVal     string
+	)
 
-	androidVer := adb.Prop(serial, "ro.build.version.release")
-	if androidVer == "" {
-		androidVer = "not available"
-	}
-	firmware := adb.Prop(serial, "ro.build.display.id")
-	if firmware == "" {
-		firmware = "not available"
-	}
-	securityPatch := adb.Prop(serial, "ro.build.version.security_patch")
-	if securityPatch == "" {
-		securityPatch = "not available"
-	}
-	kernel := adb.ShellStr(serial, "uname -r")
-	if kernel == "" {
-		kernel = "not available"
-	}
+	var wg sync.WaitGroup
 
-	soc := resolveSOC(serial)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		model = adb.Prop(serial, "ro.product.model")
+		if model == "" {
+			model = "Unknown"
+		}
+	}()
 
-	meminfoRaw := adb.ShellStr(serial, "cat /proc/meminfo | grep MemTotal")
-	ram := "not available"
-	if meminfoRaw != "" {
-		ram = parseMeminfo(meminfoRaw)
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		codename = adb.Prop(serial, "ro.product.device")
+		if codename == "" {
+			codename = adb.Prop(serial, "ro.build.product")
+		}
+	}()
 
-	dfData := adb.ShellStr(serial, "df /data | tail -1")
-	dfSdcard := adb.ShellStr(serial, "df /sdcard | tail -1")
-	storageData := "not available"
-	storageSdcard := "not available"
-	if dfData != "" {
-		storageData = parseDf(dfData)
-	}
-	if dfSdcard != "" {
-		storageSdcard = parseDf(dfSdcard)
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		androidVer = adb.Prop(serial, "ro.build.version.release")
+		if androidVer == "" {
+			androidVer = "not available"
+		}
+	}()
 
-	serialNum := adb.Prop(serial, "ro.serialno")
-	if serialNum == "" {
-		serialNum = "not available"
-	}
-	bootloader := adb.Prop(serial, "ro.bootloader")
-	if bootloader == "" {
-		bootloader = "not available"
-	}
-	imeiVal := imei(serial)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		firmware = adb.Prop(serial, "ro.build.display.id")
+		if firmware == "" {
+			firmware = "not available"
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		securityPatch = adb.Prop(serial, "ro.build.version.security_patch")
+		if securityPatch == "" {
+			securityPatch = "not available"
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		kernel = adb.ShellStr(serial, "uname -r")
+		if kernel == "" {
+			kernel = "not available"
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		soc = resolveSOC(serial)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		meminfoRaw := adb.ShellStr(serial, "cat /proc/meminfo | grep MemTotal")
+		ram = "not available"
+		if meminfoRaw != "" {
+			ram = parseMeminfo(meminfoRaw)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		dfData := adb.ShellStr(serial, "df /data | tail -1")
+		storageData = "not available"
+		if dfData != "" {
+			storageData = parseDf(dfData)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		dfSdcard := adb.ShellStr(serial, "df /sdcard | tail -1")
+		storageSdcard = "not available"
+		if dfSdcard != "" {
+			storageSdcard = parseDf(dfSdcard)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		serialNum = adb.Prop(serial, "ro.serialno")
+		if serialNum == "" {
+			serialNum = "not available"
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		bootloader = adb.Prop(serial, "ro.bootloader")
+		if bootloader == "" {
+			bootloader = "not available"
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		imeiVal = imei(serial)
+	}()
+
+	wg.Wait()
 
 	adbMode := "USB"
 	if strings.Contains(serial, ":") {

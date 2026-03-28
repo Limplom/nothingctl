@@ -30,17 +30,11 @@ func pkgInstalled(serial, pkg string) bool {
 	return strings.Contains(out, pkg)
 }
 
-func getSettingRaw(serial, namespace, key string) string {
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		fmt.Sprintf("settings get %s %s", namespace, key)})
-	return strings.TrimSpace(out)
-}
-
 func getGlyphSettings(serial string) []struct{ label, key, val string } {
 	var results []struct{ label, key, val string }
 	for _, gk := range glyphGlobalKeys {
-		val := getSettingRaw(serial, "global", gk.key)
-		if val != "null" && val != "" {
+		val := adb.Setting(serial, "global", gk.key)
+		if val != "" {
 			results = append(results, struct{ label, key, val string }{gk.label, gk.key, val})
 		}
 	}
@@ -152,8 +146,8 @@ func ActionGlyphNotify(serial, model string) error {
 
 	// 4. Notification listeners
 	fmt.Println("\n  Notification listeners (enabled_notification_listeners):")
-	listenersVal := getSettingRaw(serial, "secure", "enabled_notification_listeners")
-	if listenersVal != "" && listenersVal != "null" {
+	listenersVal := adb.Setting(serial, "secure", "enabled_notification_listeners")
+	if listenersVal != "" {
 		for _, entry := range strings.Split(listenersVal, ":") {
 			entry = strings.TrimSpace(entry)
 			pkg := entry

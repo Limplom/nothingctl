@@ -3,6 +3,7 @@ package thermal
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -157,21 +158,9 @@ func snapshot(serial string) {
 		}
 	}
 	// Sort priority by temp desc
-	for i := 0; i < len(priority); i++ {
-		for j := i + 1; j < len(priority); j++ {
-			if priority[j].temp > priority[i].temp {
-				priority[i], priority[j] = priority[j], priority[i]
-			}
-		}
-	}
+	sort.Slice(priority, func(i, j int) bool { return priority[i].temp > priority[j].temp })
 	// Sort other by temp desc
-	for i := 0; i < len(other); i++ {
-		for j := i + 1; j < len(other); j++ {
-			if other[j].temp > other[i].temp {
-				other[i], other[j] = other[j], other[i]
-			}
-		}
-	}
+	sort.Slice(other, func(i, j int) bool { return other[i].temp > other[j].temp })
 
 	fmt.Printf("\n  %-28s %20s\n", "Zone type", "Temperature")
 	fmt.Println("  " + strings.Repeat("\u2500", 55))
@@ -201,10 +190,7 @@ func snapshot(serial string) {
 
 // ActionThermal displays thermal zone temperatures, optionally watching.
 func ActionThermal(serial string, watch bool) error {
-	model := func() string {
-		s, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop ro.product.model"})
-		return strings.TrimSpace(s)
-	}()
+	model := adb.Prop(serial, "ro.product.model")
 
 	if watch {
 		adb.WatchLoop(2*time.Second, func() {

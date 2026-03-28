@@ -20,6 +20,9 @@ const (
 	magiskUA  = "nothing-firmware-manager/2.0"
 )
 
+var versionCodeRe = regexp.MustCompile(`versionCode:(\d+)`)
+var magiskTagRe = regexp.MustCompile(`v?(\d+)\.(\d+)`)
+
 // CheckMagisk probes the device and GitHub to build a complete MagiskStatus.
 func CheckMagisk(serial string) (*models.MagiskStatus, error) {
 	ms := &models.MagiskStatus{}
@@ -37,8 +40,7 @@ func CheckMagisk(serial string) (*models.MagiskStatus, error) {
 	}
 	ms.AppInstalled = magiskLine != ""
 	if magiskLine != "" {
-		re := regexp.MustCompile(`versionCode:(\d+)`)
-		if m := re.FindStringSubmatch(magiskLine); m != nil {
+		if m := versionCodeRe.FindStringSubmatch(magiskLine); m != nil {
 			vc, _ := strconv.Atoi(m[1])
 			ms.InstalledVersion = &vc
 		}
@@ -117,8 +119,7 @@ func FetchLatestMagiskRelease() (version int, downloadURL string, err error) {
 
 // magiskTagToCode converts a GitHub tag like "v30.7" to version code 30700.
 func magiskTagToCode(tag string) int {
-	re := regexp.MustCompile(`v?(\d+)\.(\d+)`)
-	m := re.FindStringSubmatch(tag)
+	m := magiskTagRe.FindStringSubmatch(tag)
 	if m == nil {
 		return 0
 	}

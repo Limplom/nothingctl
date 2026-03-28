@@ -3,7 +3,6 @@ package permissions
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/Limplom/nothingctl/internal/adb"
@@ -55,13 +54,6 @@ func shortPerm(p string) string {
 	return strings.TrimPrefix(p, "android.permission.")
 }
 
-func dumpsysPackage(serial, pkg string) (string, error) {
-	stdout, stderr, code := adb.Run([]string{"adb", "-s", serial, "shell", "dumpsys package " + pkg})
-	if code != 0 && strings.TrimSpace(stdout) == "" {
-		return "", nterrors.AdbError(fmt.Sprintf("dumpsys package %s failed: %s", pkg, strings.TrimSpace(stderr)))
-	}
-	return stdout, nil
-}
 
 func parseGrantedDangerous(output string) []string {
 	var granted []string
@@ -122,9 +114,9 @@ func parseAllDangerous(output string) (granted, notGranted []string) {
 }
 
 func auditSingle(serial, pkg string) error {
-	output, err := dumpsysPackage(serial, pkg)
-	if err != nil {
-		return err
+	output := adb.DumpsysPackage(serial, pkg)
+	if output == "" {
+		return nterrors.AdbError(fmt.Sprintf("dumpsys package %s returned no output", pkg))
 	}
 
 	// Detect package not found
@@ -180,8 +172,8 @@ func auditAll(serial string) error {
 
 	for i, pkg := range packages {
 		fmt.Printf("\r  Scanning %d/%d...", i+1, total)
-		output, err := dumpsysPackage(serial, pkg)
-		if err != nil {
+		output := adb.DumpsysPackage(serial, pkg)
+		if output == "" {
 			continue
 		}
 		granted := parseGrantedDangerous(output)
@@ -199,7 +191,6 @@ func auditAll(serial string) error {
 	}
 
 	fmt.Printf("  Permission Audit — %d apps with dangerous permissions\n\n", len(results))
-	_ = regexp.MustCompile("") // ensure import used
 	for _, r := range results {
 		var short []string
 		for _, p := range r.perms {

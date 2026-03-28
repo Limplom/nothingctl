@@ -10,16 +10,6 @@ import (
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
 )
 
-
-func settingGet(serial, namespace, key string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "settings", "get", namespace, key})
-	val := strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-	if val == "null" || val == "null\r" || val == "null\n" {
-		return ""
-	}
-	return val
-}
-
 func parseDfAvailable(dfOutput string) int {
 	for _, line := range strings.Split(dfOutput, "\n") {
 		line = strings.TrimRight(line, "\r")
@@ -190,7 +180,7 @@ func ActionLocale(serial, model, lang, timezone string, hour24 *bool) error {
 	// Read current state
 	localeVal := adb.ShellStr(serial, "getprop persist.sys.locale")
 	if localeVal == "" {
-		localeVal = settingGet(serial, "system", "system_locales")
+		localeVal = adb.Setting(serial, "system", "system_locales")
 	}
 	if localeVal == "" {
 		localeVal = adb.ShellStr(serial, "getprop ro.product.locale")
@@ -209,7 +199,7 @@ func ActionLocale(serial, model, lang, timezone string, hour24 *bool) error {
 		tzDisplay = "(not available)"
 	}
 
-	fmtVal := settingGet(serial, "system", "time_12_24")
+	fmtVal := adb.Setting(serial, "system", "time_12_24")
 	fmtDisplay := "(system default)"
 	switch fmtVal {
 	case "24":

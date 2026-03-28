@@ -10,23 +10,6 @@ import (
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
 )
 
-func getSetting(serial, namespace, key string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "settings", "get", namespace, key})
-	val := strings.TrimSpace(strings.TrimRight(stdout, "\r\n"))
-	if val == "null" || val == "null\r" {
-		return ""
-	}
-	return val
-}
-
-func putSetting(serial, namespace, key, value string) error {
-	_, stderr, code := adb.Run([]string{"adb", "-s", serial, "shell", "settings", "put", namespace, key, value})
-	if code != 0 {
-		return nterrors.AdbError(fmt.Sprintf("settings put %s %s failed: %s", namespace, key, strings.TrimSpace(stderr)))
-	}
-	return nil
-}
-
 func fmtTimeout(msStr string) string {
 	var ms int
 	if _, err := fmt.Sscanf(msStr, "%d", &ms); err != nil {
@@ -151,7 +134,7 @@ func ActionDisplay(serial, model, key, value string) error {
 			}
 			return nterrors.AdbError(fmt.Sprintf("Unknown display key '%s'. Valid keys: %s", key, strings.Join(keys, ", ")))
 		}
-		if err := putSetting(serial, ns[0], ns[1], value); err != nil {
+		if err := adb.PutSetting(serial, ns[0], ns[1], value); err != nil {
 			return err
 		}
 		fmt.Printf("  %s set to %s on %s.\n", key, value, model)
@@ -165,12 +148,12 @@ func ActionDisplay(serial, model, key, value string) error {
 	displayDump := adb.ShellStr(serial, "dumpsys display | grep -E 'mRefreshRate|refreshRate'")
 	refreshRate := parseRefreshRate(displayDump)
 
-	brightness := getSetting(serial, "system", "screen_brightness")
-	brightnessMode := getSetting(serial, "system", "screen_brightness_mode")
-	timeoutRaw := getSetting(serial, "system", "screen_off_timeout")
-	fontScale := getSetting(serial, "system", "font_scale")
-	rotationVal := getSetting(serial, "system", "user_rotation")
-	rotationAuto := getSetting(serial, "system", "accelerometer_rotation")
+	brightness := adb.Setting(serial, "system", "screen_brightness")
+	brightnessMode := adb.Setting(serial, "system", "screen_brightness_mode")
+	timeoutRaw := adb.Setting(serial, "system", "screen_off_timeout")
+	fontScale := adb.Setting(serial, "system", "font_scale")
+	rotationVal := adb.Setting(serial, "system", "user_rotation")
+	rotationAuto := adb.Setting(serial, "system", "accelerometer_rotation")
 
 	brightnessDisplay := "n/a"
 	if brightness != "" {
@@ -215,7 +198,7 @@ func ActionColorProfile(serial, model, profile string) error {
 		if !ok {
 			canonical = profile
 		}
-		if err := putSetting(serial, "system", "display_color_mode", canonical); err != nil {
+		if err := adb.PutSetting(serial, "system", "display_color_mode", canonical); err != nil {
 			return err
 		}
 		label := colorProfileLabel(canonical)
@@ -223,9 +206,9 @@ func ActionColorProfile(serial, model, profile string) error {
 		return nil
 	}
 
-	colorMode := getSetting(serial, "system", "display_color_mode")
-	nightActive := getSetting(serial, "secure", "night_display_activated")
-	nightTemp := getSetting(serial, "secure", "night_display_color_temperature")
+	colorMode := adb.Setting(serial, "system", "display_color_mode")
+	nightActive := adb.Setting(serial, "secure", "night_display_activated")
+	nightTemp := adb.Setting(serial, "secure", "night_display_color_temperature")
 
 	modeDisplay := "n/a"
 	if colorMode != "" {

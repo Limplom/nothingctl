@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/Limplom/nothingctl/internal/adb"
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
@@ -31,7 +32,28 @@ var ndcDNSRe    = regexp.MustCompile(`DNS servers:\s*(.+)`)
 
 // ActionNetworkInfo displays network information.
 func ActionNetworkInfo(serial, model string) error {
-	wifiRaw := adb.ShellStr(serial, "cmd wifi status")
+	var wifiRaw, dnsRaw, operator, netType, connRaw string
+	var pdnsMode, pdnsProvider string
+
+	var wg sync.WaitGroup
+	wg.Add(6)
+	go func() { defer wg.Done(); wifiRaw = adb.ShellStr(serial, "cmd wifi status") }()
+	go func() {
+		defer wg.Done()
+		dnsRaw = adb.ShellStr(serial, "getprop | grep -E 'net\\.dns[12]|dhcp.*dns'")
+	}()
+	go func() { defer wg.Done(); operator = adb.ShellStr(serial, "getprop gsm.operator.alpha") }()
+	go func() { defer wg.Done(); netType = adb.ShellStr(serial, "getprop gsm.network.type") }()
+	go func() {
+		defer wg.Done()
+		connRaw = adb.ShellStr(serial, "dumpsys connectivity | grep -E 'NetworkAgentInfo.*CONNECTED|activeNetwork'")
+	}()
+	go func() {
+		defer wg.Done()
+		pdnsMode = adb.Setting(serial, "global", "private_dns_mode")
+		pdnsProvider = adb.Setting(serial, "global", "private_dns_specifier")
+	}()
+	wg.Wait()
 
 	var ssid, bssid, rssi, linkSpeed, freq, ipWifi string
 
@@ -86,7 +108,6 @@ func ActionNetworkInfo(serial, model string) error {
 	}
 
 	// DNS servers
-	dnsRaw := adb.ShellStr(serial, "getprop | grep -E 'net\\.dns[12]|dhcp.*dns'")
 	var dnsServers []string
 	for _, line := range strings.Split(dnsRaw, "\n") {
 		line = strings.TrimRight(line, "\r")
@@ -111,14 +132,6 @@ func ActionNetworkInfo(serial, model string) error {
 		}
 	}
 
-	// Private DNS
-	pdnsMode := adb.Setting(serial, "global", "private_dns_mode")
-	pdnsProvider := adb.Setting(serial, "global", "private_dns_specifier")
-
-	// Mobile network
-	operator := adb.ShellStr(serial, "getprop gsm.operator.alpha")
-	netType := adb.ShellStr(serial, "getprop gsm.network.type")
-
 	// Handle comma-separated multi-SIM values
 	if strings.Contains(operator, ",") {
 		for _, o := range strings.Split(operator, ",") {
@@ -138,7 +151,6 @@ func ActionNetworkInfo(serial, model string) error {
 	}
 
 	// Active connection type
-	connRaw := adb.ShellStr(serial, "dumpsys connectivity | grep -E 'NetworkAgentInfo.*CONNECTED|activeNetwork'")
 	connType := "Unknown"
 	upper := strings.ToUpper(connRaw)
 	switch {

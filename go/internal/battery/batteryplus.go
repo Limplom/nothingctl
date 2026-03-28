@@ -4,6 +4,7 @@ package battery
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/Limplom/nothingctl/internal/adb"
@@ -92,14 +93,8 @@ func parseBatterystats(output string) []appDrain {
 			flat = append(flat, appDrain{pkg, d.secs, d.count})
 		}
 	}
-	// Sort descending by secs (bubble sort to avoid importing sort)
-	for i := 0; i < len(flat); i++ {
-		for j := i + 1; j < len(flat); j++ {
-			if flat[j].secs > flat[i].secs {
-				flat[i], flat[j] = flat[j], flat[i]
-			}
-		}
-	}
+	// Sort descending by secs
+	sort.Slice(flat, func(i, j int) bool { return flat[i].secs > flat[j].secs })
 	return flat
 }
 

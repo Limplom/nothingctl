@@ -47,21 +47,6 @@ var knownKeys = []knownKey{
 	{"secure", "nt_glimpse_lockscreen_cleared", "Glimpse lockscreen seen", "new"},
 }
 
-func getSetting(serial, namespace, key string) string {
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		fmt.Sprintf("settings get %s %s", namespace, key)})
-	return strings.TrimSpace(out)
-}
-
-func setSetting(serial, namespace, key, value string) error {
-	_, stderr, code := adb.Run([]string{"adb", "-s", serial, "shell",
-		fmt.Sprintf("settings put %s %s %s", namespace, key, value)})
-	if code != 0 {
-		return nterrors.AdbError(fmt.Sprintf("Failed to set %s/%s=%s: %s",
-			namespace, key, value, strings.TrimSpace(stderr)))
-	}
-	return nil
-}
 
 // ActionNothingSettings reads or writes Nothing-specific Android settings.
 // key="" means list all. key set + value="" means read. key + value means write.
@@ -71,7 +56,7 @@ func ActionNothingSettings(serial, model, key, value string) error {
 		if err != nil {
 			return err
 		}
-		if err := setSetting(serial, ns, rawKey, value); err != nil {
+		if err := adb.PutSetting(serial, ns, rawKey, value); err != nil {
 			return err
 		}
 		fmt.Printf("[OK] Set %s/%s = %s\n", ns, rawKey, value)
@@ -83,7 +68,7 @@ func ActionNothingSettings(serial, model, key, value string) error {
 		if err != nil {
 			return err
 		}
-		val := getSetting(serial, ns, rawKey)
+		val := adb.Setting(serial, ns, rawKey)
 		fmt.Printf("  %s/%s = %s\n", ns, rawKey, val)
 		return nil
 	}
@@ -95,9 +80,9 @@ func ActionNothingSettings(serial, model, key, value string) error {
 		strings.Repeat("-", 8), strings.Repeat("-", 44), strings.Repeat("-", 38))
 
 	for _, kk := range knownKeys {
-		val := getSetting(serial, kk.namespace, kk.key)
+		val := adb.Setting(serial, kk.namespace, kk.key)
 		marker := "  "
-		if val == "null" {
+		if val == "" {
 			marker = " *"
 		}
 		fmt.Printf("%s %-8s  %-44s  %-38s  %s\n",
@@ -157,7 +142,7 @@ func ActionEssentialSpace(serial, model string, enable *bool) error {
 			val = "1"
 			label = "enabled"
 		}
-		if err := setSetting(serial, "secure", "essential_space_enabled", val); err != nil {
+		if err := adb.PutSetting(serial, "secure", "essential_space_enabled", val); err != nil {
 			return err
 		}
 		fmt.Printf("[OK] Essential Space %s.\n", label)
@@ -168,12 +153,12 @@ func ActionEssentialSpace(serial, model string, enable *bool) error {
 	// Status
 	fmt.Printf("\n  Essential Space \u2014 %s (%s)\n", model, serial)
 
-	enabledVal := getSetting(serial, "secure", "essential_space_enabled")
-	rulesVal := getSetting(serial, "global", "essential_notification_rules")
-	defaultRule := getSetting(serial, "secure", "essential_has_set_default_rule")
-	onboarding := getSetting(serial, "secure", "nt_essential_key_onboarding")
+	enabledVal := adb.Setting(serial, "secure", "essential_space_enabled")
+	rulesVal := adb.Setting(serial, "global", "essential_notification_rules")
+	defaultRule := adb.Setting(serial, "secure", "essential_has_set_default_rule")
+	onboarding := adb.Setting(serial, "secure", "nt_essential_key_onboarding")
 
-	stateMap := map[string]string{"1": "ENABLED", "0": "DISABLED", "null": "not set (default)"}
+	stateMap := map[string]string{"1": "ENABLED", "0": "DISABLED", "": "not set (default)"}
 	state, ok := stateMap[enabledVal]
 	if !ok {
 		state = enabledVal

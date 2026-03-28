@@ -7,11 +7,31 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/Limplom/nothingctl/internal/adb"
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
 )
+
+// ---------------------------------------------------------------------------
+// Package-level compiled regexps
+// ---------------------------------------------------------------------------
+
+var versionNameRe    = regexp.MustCompile(`versionName=(\S+)`)
+var versionCodeRe    = regexp.MustCompile(`versionCode=(\d+)`)
+var minSdkRe         = regexp.MustCompile(`minSdk=(\d+)`)
+var targetSdkRe      = regexp.MustCompile(`targetSdk=(\d+)`)
+var lastUpdateTimeRe = regexp.MustCompile(`lastUpdateTime=([\d\- :]+)`)
+var timeStampRe      = regexp.MustCompile(`timeStamp=([\d\- :]+)`)
+var firstInstallRe   = regexp.MustCompile(`firstInstallTime=([\d\- :]+)`)
+var codePathRe       = regexp.MustCompile(`codePath=(\S+)`)
+var installerRe      = regexp.MustCompile(`installerPackageName=(\S+)`)
+var userSplitRe      = regexp.MustCompile(`\n\s+User \d+:`)
+var user0Re          = regexp.MustCompile(`(?s)User 0:.*?(?:\n\s+User \d+:|\z)`)
+var apkSizeRe        = regexp.MustCompile(`Size:\s+(\d+)`)
+var enabledRe        = regexp.MustCompile(`(?s)User 0:.*?enabled=(\d+)`)
+var pkgVersionCodeRe = regexp.MustCompile(`\s+versionCode:(\d+)$`)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -22,13 +42,6 @@ func packageExists(serial, pkg string) bool {
 	return strings.Contains(stdout, "package:"+pkg)
 }
 
-func dumpsysPackage(serial, pkg string) (string, error) {
-	stdout, stderr, code := adb.Run([]string{"adb", "-s", serial, "shell", "dumpsys package " + pkg})
-	if code != 0 && strings.TrimSpace(stdout) == "" {
-		return "", nterrors.AdbError(fmt.Sprintf("dumpsys package %s failed: %s", pkg, strings.TrimSpace(stderr)))
-	}
-	return stdout, nil
-}
 
 func fmtBytes(size int64) string {
 	units := []string{"B", "KB", "MB", "GB"}
@@ -84,8 +97,7 @@ func extractPackagesSection(output, pkg string) string {
 	return strings.Join(result, "\n")
 }
 
-func reFirst(pattern, text string) string {
-	rx := regexp.MustCompile(pattern)
+func reFirst(rx *regexp.Regexp, text string) string {
 	m := rx.FindStringSubmatch(text)
 	if len(m) < 2 {
 		return ""
@@ -94,36 +106,33 @@ func reFirst(pattern, text string) string {
 }
 
 func parseAppInfo(serial, pkg string) (map[string]string, error) {
-	raw, err := dumpsysPackage(serial, pkg)
-	if err != nil {
-		return nil, err
+	raw := adb.DumpsysPackage(serial, pkg)
+	if raw == "" {
+		return nil, nterrors.AdbError(fmt.Sprintf("dumpsys package %s returned no output", pkg))
 	}
 	block := extractPackagesSection(raw, pkg)
 
-	versionName := reFirst(`versionName=(\S+)`, block)
-	vcRx := regexp.MustCompile(`versionCode=(\d+)`)
+	versionName := reFirst(versionNameRe, block)
 	versionCode := ""
-	if m := vcRx.FindStringSubmatch(block); len(m) >= 2 {
+	if m := versionCodeRe.FindStringSubmatch(block); len(m) >= 2 {
 		versionCode = m[1]
 	}
 
-	minSDK := reFirst(`minSdk=(\d+)`, block)
-	targetSDK := reFirst(`targetSdk=(\d+)`, block)
+	minSDK := reFirst(minSdkRe, block)
+	targetSDK := reFirst(targetSdkRe, block)
 
-	userSplitRx := regexp.MustCompile(`\n\s+User \d+:`)
-	topBlock := userSplitRx.Split(block, 2)[0]
-	lastUpdate := reFirst(`lastUpdateTime=([\d\- :]+)`, topBlock)
+	topBlock := userSplitRe.Split(block, 2)[0]
+	lastUpdate := reFirst(lastUpdateTimeRe, topBlock)
 	if lastUpdate == "" {
-		lastUpdate = reFirst(`timeStamp=([\d\- :]+)`, topBlock)
+		lastUpdate = reFirst(timeStampRe, topBlock)
 	}
 
 	firstInstall := ""
-	user0Rx := regexp.MustCompile(`(?s)User 0:.*?(?:\n\s+User \d+:|\z)`)
-	if m := user0Rx.FindString(block); m != "" {
-		firstInstall = reFirst(`firstInstallTime=([\d\- :]+)`, m)
+	if m := user0Re.FindString(block); m != "" {
+		firstInstall = reFirst(firstInstallRe, m)
 	}
 
-	codePath := reFirst(`codePath=(\S+)`, block)
+	codePath := reFirst(codePathRe, block)
 	apkPath := ""
 	if codePath != "" {
 		apkPath = strings.TrimRight(codePath, "/") + "/base.apk"
@@ -146,8 +155,7 @@ func parseAppInfo(serial, pkg string) (map[string]string, error) {
 	apkSize := ""
 	if apkPath != "" {
 		stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "stat " + apkPath + " 2>/dev/null"})
-		sizeRx := regexp.MustCompile(`Size:\s+(\d+)`)
-		if m := sizeRx.FindStringSubmatch(stdout); len(m) >= 2 {
+		if m := apkSizeRe.FindStringSubmatch(stdout); len(m) >= 2 {
 			var n int64
 			fmt.Sscanf(m[1], "%d", &n)
 			apkSize = fmtBytes(n)
@@ -165,8 +173,7 @@ func parseAppInfo(serial, pkg string) (map[string]string, error) {
 	}
 
 	enabledStr := "enabled"
-	enabledRx := regexp.MustCompile(`(?s)User 0:.*?enabled=(\d+)`)
-	if m := enabledRx.FindStringSubmatch(block); len(m) >= 2 {
+	if m := enabledRe.FindStringSubmatch(block); len(m) >= 2 {
 		val := 0
 		fmt.Sscanf(m[1], "%d", &val)
 		if val != 0 && val != 1 {
@@ -174,7 +181,7 @@ func parseAppInfo(serial, pkg string) (map[string]string, error) {
 		}
 	}
 
-	installer := reFirst(`installerPackageName=(\S+)`, block)
+	installer := reFirst(installerRe, block)
 
 	return map[string]string{
 		"package":       pkg,
@@ -203,8 +210,7 @@ func ActionAppInfo(serial, packageName string) error {
 	}
 
 	// We need the model for display; read it
-	model, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop ro.product.model"})
-	model = strings.TrimSpace(model)
+	model := adb.Prop(serial, "ro.product.model")
 
 	info, err := parseAppInfo(serial, packageName)
 	if err != nil {
@@ -245,8 +251,7 @@ func ActionKillApp(serial, packageName string) error {
 		return nterrors.AdbError(fmt.Sprintf("Package not found on device: %s", packageName))
 	}
 
-	model, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop ro.product.model"})
-	model = strings.TrimSpace(model)
+	model := adb.Prop(serial, "ro.product.model")
 
 	fmt.Printf("  Force-stopping %s on %s...\n", packageName, model)
 	_, stderr, code := adb.Run([]string{"adb", "-s", serial, "shell", "am force-stop " + packageName})
@@ -264,8 +269,7 @@ func ActionKillApp(serial, packageName string) error {
 // ActionLaunchApp launches an app by package name or deep link.
 // If deepLink is non-empty, it launches an ACTION_VIEW intent.
 func ActionLaunchApp(serial, packageName, deepLink string) error {
-	model, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop ro.product.model"})
-	model = strings.TrimSpace(model)
+	model := adb.Prop(serial, "ro.product.model")
 
 	if packageName != "" && deepLink != "" {
 		return nterrors.AdbError("Specify either --package or --deep-link, not both.")
@@ -367,7 +371,6 @@ func getAllPackages(serial string, includeSystem bool) ([]pkgRow, error) {
 		return nil, nterrors.AdbError(fmt.Sprintf("pm list packages failed: %s", strings.TrimSpace(stderr)))
 	}
 
-	vcRx := regexp.MustCompile(`\s+versionCode:(\d+)$`)
 	var rows []pkgRow
 	for _, line := range strings.Split(stdout, "\n") {
 		line = strings.TrimSpace(strings.TrimRight(line, "\r"))
@@ -376,9 +379,9 @@ func getAllPackages(serial string, includeSystem bool) ([]pkgRow, error) {
 		}
 		line = strings.TrimPrefix(line, "package:")
 		versionCode := ""
-		if m := vcRx.FindStringSubmatch(line); len(m) >= 2 {
+		if m := pkgVersionCodeRe.FindStringSubmatch(line); len(m) >= 2 {
 			versionCode = m[1]
-			line = line[:vcRx.FindStringIndex(line)[0]]
+			line = line[:pkgVersionCodeRe.FindStringIndex(line)[0]]
 		}
 		apkPath := ""
 		pkg := ""
@@ -391,21 +394,14 @@ func getAllPackages(serial string, includeSystem bool) ([]pkgRow, error) {
 		rows = append(rows, pkgRow{Package: pkg, VersionCode: versionCode, APKPath: apkPath})
 	}
 
-	// simple sort by package name
-	for i := 0; i < len(rows)-1; i++ {
-		for j := i + 1; j < len(rows); j++ {
-			if rows[i].Package > rows[j].Package {
-				rows[i], rows[j] = rows[j], rows[i]
-			}
-		}
-	}
+	// sort by package name
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Package < rows[j].Package })
 	return rows, nil
 }
 
 // ActionPackageList lists installed packages in text, csv, or json format.
 func ActionPackageList(serial, format string) error {
-	model, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop ro.product.model"})
-	model = strings.TrimSpace(model)
+	model := adb.Prop(serial, "ro.product.model")
 
 	fmt.Printf("\r  Fetching packages from %s...", model)
 	rows, err := getAllPackages(serial, false)

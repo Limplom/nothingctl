@@ -14,6 +14,8 @@ const (
 	fastbootPollTimeout  = 40 * time.Second
 )
 
+var currentSlotRe = regexp.MustCompile(`current-slot:\s*([ab])`)
+
 // ---------------------------------------------------------------------------
 // Fastboot helpers
 // ---------------------------------------------------------------------------
@@ -83,8 +85,7 @@ func QueryCurrentSlot(serial string) (string, error) {
 	cmdArgs := []string{"fastboot", "-s", serial, "getvar", "current-slot"}
 	stdout, stderr, _ := Run(cmdArgs)
 	combined := stdout + stderr
-	re := regexp.MustCompile(`current-slot:\s*([ab])`)
-	m := re.FindStringSubmatch(combined)
+	m := currentSlotRe.FindStringSubmatch(combined)
 	if m == nil {
 		return "unknown", nil
 	}

@@ -4,7 +4,9 @@ package procmon
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Limplom/nothingctl/internal/adb"
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
@@ -91,13 +93,7 @@ func ActionProcessTree(serial, packageName string) error {
 			strings.Repeat("\u2500", 6), strings.Repeat("\u2500", 6),
 			strings.Repeat("\u2500", 10), strings.Repeat("\u2500", 24), strings.Repeat("\u2500", 16))
 		// Sort by PID
-		for i := 0; i < len(filtered); i++ {
-			for j := i + 1; j < len(filtered); j++ {
-				if filtered[j].pid < filtered[i].pid {
-					filtered[i], filtered[j] = filtered[j], filtered[i]
-				}
-			}
-		}
+		sort.Slice(filtered, func(i, j int) bool { return filtered[i].pid < filtered[j].pid })
 		for _, p := range filtered {
 			stateLabel, ok := stateLabels[p.state]
 			if !ok {
@@ -137,13 +133,7 @@ func ActionProcessTree(serial, packageName string) error {
 	fmt.Printf("  %-6s %-32s %s\n", strings.Repeat("\u2500", 6), strings.Repeat("\u2500", 32), strings.Repeat("\u2500", 12))
 
 	// Sort user apps by PID
-	for i := 0; i < len(userApps); i++ {
-		for j := i + 1; j < len(userApps); j++ {
-			if userApps[j].pid < userApps[i].pid {
-				userApps[i], userApps[j] = userApps[j], userApps[i]
-			}
-		}
-	}
+	sort.Slice(userApps, func(i, j int) bool { return userApps[i].pid < userApps[j].pid })
 	top := userApps
 	if len(top) > 30 {
 		top = top[:30]
@@ -266,9 +256,13 @@ func ActionDozeStatus(serial, whitelistAdd, whitelistRemove string) error {
 		fmt.Println()
 	}
 
-	deviceidleDump := adb.ShellStr(serial, "dumpsys deviceidle")
-	whitelistRaw := adb.ShellStr(serial, "dumpsys deviceidle whitelist")
-	batteryDump := adb.ShellStr(serial, "dumpsys battery")
+	var deviceidleDump, whitelistRaw, batteryDump string
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() { defer wg.Done(); deviceidleDump = adb.ShellStr(serial, "dumpsys deviceidle") }()
+	go func() { defer wg.Done(); whitelistRaw = adb.ShellStr(serial, "dumpsys deviceidle whitelist") }()
+	go func() { defer wg.Done(); batteryDump = adb.ShellStr(serial, "dumpsys battery") }()
+	wg.Wait()
 
 	state := parseDozeState(deviceidleDump)
 	lightState := parseLightState(deviceidleDump)
@@ -299,13 +293,7 @@ func ActionDozeStatus(serial, whitelistAdd, whitelistRemove string) error {
 	fmt.Println("  Whitelist (battery optimization exempt):")
 	if len(whitelist) > 0 {
 		// Sort
-		for i := 0; i < len(whitelist); i++ {
-			for j := i + 1; j < len(whitelist); j++ {
-				if whitelist[j] < whitelist[i] {
-					whitelist[i], whitelist[j] = whitelist[j], whitelist[i]
-				}
-			}
-		}
+		sort.Strings(whitelist)
 		for _, pkg := range whitelist {
 			fmt.Printf("  %s\n", pkg)
 		}

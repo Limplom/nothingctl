@@ -3,6 +3,7 @@ package network
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -112,14 +113,8 @@ func ActionWifiScan(serial, model string) error {
 		networks = parseScanResults(raw)
 	}
 
-	// Sort strongest first (bubble sort descending by rssi)
-	for i := 0; i < len(networks); i++ {
-		for j := i + 1; j < len(networks); j++ {
-			if networks[j].rssi > networks[i].rssi {
-				networks[i], networks[j] = networks[j], networks[i]
-			}
-		}
-	}
+	// Sort strongest first (descending by rssi)
+	sort.Slice(networks, func(i, j int) bool { return networks[i].rssi > networks[j].rssi })
 
 	fmt.Printf("\n  WiFi Scan \u2014 %s\n", model)
 	fmt.Println("  (trigger: cmd wifi start-scan)\n")

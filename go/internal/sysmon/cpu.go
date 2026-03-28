@@ -3,6 +3,7 @@ package sysmon
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -70,8 +71,7 @@ func classifyMTKCluster(maxHz int64) string {
 }
 
 func detectSOC(serial string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop ro.board.platform"})
-	platform := strings.ToLower(strings.TrimSpace(stdout))
+	platform := strings.ToLower(adb.Prop(serial, "ro.board.platform"))
 	if strings.HasPrefix(platform, "mt") || strings.HasPrefix(platform, "dimensity") {
 		return "mediatek"
 	}
@@ -125,13 +125,7 @@ func readTopProcesses(serial string, topN int) []procInfo {
 		procs = append(procs, procInfo{cpu, pid, parts[4]})
 	}
 	// Sort descending
-	for i := 0; i < len(procs); i++ {
-		for j := i + 1; j < len(procs); j++ {
-			if procs[j].cpuPct > procs[i].cpuPct {
-				procs[i], procs[j] = procs[j], procs[i]
-			}
-		}
-	}
+	sort.Slice(procs, func(i, j int) bool { return procs[i].cpuPct > procs[j].cpuPct })
 	if len(procs) > topN {
 		procs = procs[:topN]
 	}
@@ -199,10 +193,7 @@ func cpuSnapshot(serial, model, soc string, topN int) {
 
 // ActionCPUUsage displays CPU frequency per core and top-N processes by CPU usage.
 func ActionCPUUsage(serial string, topN int, watch bool) error {
-	model := func() string {
-		s, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop ro.product.model"})
-		return strings.TrimSpace(s)
-	}()
+	model := adb.Prop(serial, "ro.product.model")
 	soc := detectSOC(serial)
 
 	if watch {

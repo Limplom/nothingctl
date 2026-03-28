@@ -20,6 +20,8 @@ const (
 	userAgent     = "nothing-firmware-manager/2.0"
 )
 
+var dateTagRe = regexp.MustCompile(`-(\d{6})-`)
+
 // GhGet performs an HTTP GET against the nothing_archive GitHub API and returns
 // the raw response body. It handles rate limiting by returning an error with
 // the rate-limit reset time when a 403/429 is received.
@@ -87,12 +89,11 @@ func LatestRelease(owner, repo string) (map[string]any, error) {
 // latestFromList picks the newest release from a pre-fetched list using the
 // same date-based sort key as the Python version.
 func latestFromList(releases []map[string]any) map[string]any {
-	re := regexp.MustCompile(`-(\d{6})-`)
 	best := releases[0]
 	bestKey := "000000"
 	for _, r := range releases {
 		tag, _ := r["tag_name"].(string)
-		if m := re.FindStringSubmatch(tag); m != nil {
+		if m := dateTagRe.FindStringSubmatch(tag); m != nil {
 			if m[1] > bestKey {
 				bestKey = m[1]
 				best = r

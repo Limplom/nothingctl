@@ -238,3 +238,19 @@ func Setting(serial, namespace, key string) string {
 	}
 	return val
 }
+
+// PutSetting writes a value to the Android settings provider (system/secure/global).
+func PutSetting(serial, namespace, key, value string) error {
+	_, stderr, code := Run([]string{"adb", "-s", serial, "shell",
+		"settings", "put", namespace, key, value})
+	if code != 0 {
+		return nterrors.AdbError(fmt.Sprintf("settings put %s %s failed: %s",
+			namespace, key, strings.TrimSpace(stderr)))
+	}
+	return nil
+}
+
+// DumpsysPackage runs `dumpsys package <pkg>` and returns the output.
+func DumpsysPackage(serial, pkg string) string {
+	return ShellStr(serial, "dumpsys package "+pkg)
+}
