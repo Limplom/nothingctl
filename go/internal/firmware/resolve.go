@@ -144,6 +144,95 @@ func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*mod
 	}, nil
 }
 
+// findAssetBySuffix searches a slice of GitHub asset objects (each a
+// map[string]any with "name" and "browser_download_url" keys) for the first
+// asset whose name ends with suffix. Returns the download URL, asset name, and
+// an error if not found.
+func findAssetBySuffix(assets []map[string]any, suffix string) (url, name string, err error) {
+	for _, asset := range assets {
+		assetName, _ := asset["name"].(string)
+		if strings.HasSuffix(assetName, suffix) {
+			dl, _ := asset["browser_download_url"].(string)
+			return dl, assetName, nil
+		}
+	}
+	return "", "", fmt.Errorf("no asset with suffix %q found in release", suffix)
+}
+
+// DownloadFirmwareArchive downloads and extracts the image-firmware.7z asset
+// for the given release into destDir. Skips if modem.img already exists.
+func DownloadFirmwareArchive(assets []map[string]any, destDir string, force bool) error {
+	// Check if already extracted
+	if !force {
+		if _, err := os.Stat(filepath.Join(destDir, "modem.img")); err == nil {
+			fmt.Println("  Firmware archive already extracted.")
+			return nil
+		}
+	}
+	// Find the asset
+	url, name, err := findAssetBySuffix(assets, "-image-firmware.7z")
+	if err != nil {
+		return err
+	}
+	archivePath := filepath.Join(destDir, name)
+	if err := DownloadFile(url, archivePath); err != nil {
+		return err
+	}
+	fmt.Printf("Extracting %s...\n", name)
+	if err := Extract7z(archivePath, destDir); err != nil {
+		return err
+	}
+	os.Remove(archivePath)
+	return nil
+}
+
+// DownloadLogicalArchive downloads all image-logical.7z.001/.002/... parts
+// and extracts them into destDir. Skips if system.img already exists.
+func DownloadLogicalArchive(assets []map[string]any, destDir string, force bool) error {
+	// Check if already extracted
+	if !force {
+		if _, err := os.Stat(filepath.Join(destDir, "system.img")); err == nil {
+			fmt.Println("  Logical archive already extracted.")
+			return nil
+		}
+	}
+	// Collect all parts in order
+	var parts []struct{ url, name string }
+	for i := 1; ; i++ {
+		suffix := fmt.Sprintf("-image-logical.7z.%03d", i)
+		url, name, err := findAssetBySuffix(assets, suffix)
+		if err != nil {
+			break // no more parts
+		}
+		parts = append(parts, struct{ url, name string }{url, name})
+	}
+	if len(parts) == 0 {
+		return fmt.Errorf("no logical partition archive found in release assets")
+	}
+	fmt.Printf("  Logical archive: %d parts to download (~4 GB)...\n", len(parts))
+	for _, p := range parts {
+		archivePath := filepath.Join(destDir, p.name)
+		if _, err := os.Stat(archivePath); err == nil && !force {
+			fmt.Printf("  %s already downloaded.\n", p.name)
+			continue
+		}
+		if err := DownloadFile(p.url, archivePath); err != nil {
+			return err
+		}
+	}
+	// Extract from the .001 part (7z handles multi-part automatically)
+	part001 := filepath.Join(destDir, parts[0].name)
+	fmt.Printf("Extracting logical partitions (this may take several minutes)...\n")
+	if err := Extract7z(part001, destDir); err != nil {
+		return err
+	}
+	// Delete downloaded parts to reclaim disk space
+	for _, p := range parts {
+		os.Remove(filepath.Join(destDir, p.name))
+	}
+	return nil
+}
+
 // FindMagiskPatched finds the most-recently-created magisk_patched*.img on the
 // device's sdcard download folder. Returns the device path or an error if none
 // is found.

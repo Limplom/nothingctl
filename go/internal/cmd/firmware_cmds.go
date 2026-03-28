@@ -24,6 +24,7 @@ var (
 	flagRestoreDir  string
 	flagDryRun      bool
 	flagPartitions  string // comma-separated list
+	flagSkipLogical bool
 )
 
 // ---------------------------------------------------------------------------
@@ -59,6 +60,11 @@ func init() {
 	rootCmd.AddCommand(pushForPatchCmd)
 	rootCmd.AddCommand(flashPatchedCmd)
 	rootCmd.AddCommand(fixBiometricCmd)
+
+	// full-flash
+	fullFlashCmd.Flags().BoolVar(&flagSkipLogical, "skip-logical", false,
+		"skip the ~4 GB logical partition download (flash firmware + boot only)")
+	rootCmd.AddCommand(fullFlashCmd)
 
 	// history / status
 	rootCmd.AddCommand(historyCmd)
@@ -575,5 +581,42 @@ No files are downloaded — use ota-update to download and flash.`,
 			return err
 		}
 		return firmware.CheckUpdate(serial, dev.Codename)
+	},
+}
+
+// ---------------------------------------------------------------------------
+// full-flash
+// ---------------------------------------------------------------------------
+
+var fullFlashCmd = &cobra.Command{
+	Use:   "full-flash",
+	Short: "Download and flash all partitions (firmware + boot + logical ~4 GB)",
+	Long: `Full firmware flash: downloads image-boot, image-firmware, and image-logical
+archives from nothing_archive and flashes all partitions.
+
+If Magisk root is active, init_boot is patched before flashing to preserve root.
+
+Requires fastboot access. Device must be connected via USB.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		serial, err := adb.EnsureDevice(flagSerial)
+		if err != nil {
+			return err
+		}
+		codename := adb.Prop(serial, "ro.product.device")
+
+		// Wire up Magisk patching if root is available.
+		var patchFunc firmware.BootPatchFunc
+		if adb.CheckAdbRoot(serial) {
+			patchFunc = magisk.MagiskCLIPatch
+		}
+
+		return firmware.ActionFullFlash(
+			serial,
+			codename,
+			resolveBaseDir(),
+			flagForceDownload,
+			flagSkipLogical,
+			patchFunc,
+		)
 	},
 }

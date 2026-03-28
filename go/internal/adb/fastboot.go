@@ -124,3 +124,51 @@ func FastbootGetVar(serial, variable string) (string, error) {
 	}
 	return strings.TrimSpace(stdout), nil
 }
+
+// WaitForFastbootd polls until the device enters userspace fastboot (fastbootd).
+// It checks `fastboot getvar is-userspace` for the value "yes".
+// Returns an error after timeoutSec seconds.
+func WaitForFastbootd(serial string, timeoutSec int) error {
+	deadline := time.Now().Add(time.Duration(timeoutSec) * time.Second)
+	for time.Now().Before(deadline) {
+		args := []string{"fastboot"}
+		if serial != "" {
+			args = append(args, "-s", serial)
+		}
+		args = append(args, "getvar", "is-userspace")
+		stdout, stderr, _ := Run(args)
+		combined := stdout + stderr
+		if strings.Contains(combined, "is-userspace: yes") {
+			return nil
+		}
+		time.Sleep(2 * time.Second)
+		fmt.Print(".")
+	}
+	return fmt.Errorf("fastbootd device not found after %d seconds", timeoutSec)
+}
+
+// RebootToFastbootd runs `fastboot reboot fastboot` then waits for the device
+// to enter userspace fastboot (fastbootd).
+func RebootToFastbootd(serial string) error {
+	fmt.Println("Rebooting to fastbootd (userspace fastboot)...")
+	args := []string{"fastboot"}
+	if serial != "" {
+		args = append(args, "-s", serial)
+	}
+	args = append(args, "reboot", "fastboot")
+	Run(args) // ignore exit code — device may disconnect before returning
+	return WaitForFastbootd(serial, 90)
+}
+
+// RebootToBootloaderFromFastbootd runs `fastboot reboot bootloader` from
+// fastbootd mode, then waits for the device to appear in regular fastboot.
+func RebootToBootloaderFromFastbootd(serial string) error {
+	fmt.Println("Rebooting to bootloader...")
+	args := []string{"fastboot"}
+	if serial != "" {
+		args = append(args, "-s", serial)
+	}
+	args = append(args, "reboot", "bootloader")
+	Run(args)
+	return WaitForFastboot(serial, 60)
+}
