@@ -58,20 +58,13 @@ func AdbShell(serial, cmd string) (string, error) {
 }
 
 // AdbShellLines runs `adb -s <serial> shell <cmd>` and returns non-empty output
-// lines.
+// lines. Each line is fully trimmed (via ParseShellLines).
 func AdbShellLines(serial, cmd string) ([]string, error) {
 	out, err := AdbShell(serial, cmd)
 	if err != nil {
 		return nil, err
 	}
-	var lines []string
-	for _, line := range strings.Split(out, "\n") {
-		line = strings.TrimRight(line, "\r")
-		if strings.TrimSpace(line) != "" {
-			lines = append(lines, line)
-		}
-	}
-	return lines, nil
+	return ParseShellLines(out), nil
 }
 
 // ParseShellLines splits raw ADB shell output on "\n", strips trailing "\r",

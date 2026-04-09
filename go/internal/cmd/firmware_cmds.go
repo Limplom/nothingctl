@@ -236,7 +236,7 @@ var flashFirmwareCmd = &cobra.Command{
 			return fmt.Errorf("cancelled by user")
 		}
 
-		if err := adb.RebootToBootloader(serial); err != nil {
+		if err := adb.RebootToBootloaderCtx(ctx, serial); err != nil {
 			return err
 		}
 		slot, _ := adb.QueryCurrentSlot(serial)
@@ -251,13 +251,13 @@ var flashFirmwareCmd = &cobra.Command{
 				fmt.Printf("  Skipping %s (image not found in package)\n", part)
 				continue
 			}
-			if err := adb.FastbootFlashAB(serial, part, imgPath); err != nil {
+			if err := adb.FastbootFlashABCtx(ctx, serial, part, imgPath); err != nil {
 				return err
 			}
 		}
 
 		fmt.Println("\nFlash complete. Rebooting...")
-		if _, err := adb.FastbootRun(serial, []string{"reboot"}); err != nil {
+		if err := adb.FastbootRebootCtx(ctx, serial); err != nil {
 			fmt.Printf("  WARNING: reboot failed: %v\n", err)
 		}
 
@@ -343,13 +343,13 @@ var otaUpdateCmd = &cobra.Command{
 			return fmt.Errorf("cancelled by user")
 		}
 
-		if err := adb.RebootToBootloader(serial); err != nil {
+		if err := adb.RebootToBootloaderCtx(ctx, serial); err != nil {
 			return err
 		}
-		if err := adb.FastbootFlashAB(serial, fw.BootTarget.PartitionBase, localPatched); err != nil {
+		if err := adb.FastbootFlashABCtx(ctx, serial, fw.BootTarget.PartitionBase, localPatched); err != nil {
 			return err
 		}
-		if _, err := adb.FastbootRun(serial, []string{"reboot"}); err != nil {
+		if err := adb.FastbootRebootCtx(ctx, serial); err != nil {
 			fmt.Printf("  WARNING: reboot failed: %v\n", err)
 		}
 
@@ -503,6 +503,9 @@ var flashPatchedCmd = &cobra.Command{
 	Use:   "flash-patched",
 	Short: "Pull magisk_patched image from device and flash to both A/B slots",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err
@@ -522,7 +525,7 @@ var flashPatchedCmd = &cobra.Command{
 			if adb.CheckAdbRoot(serial) {
 				fmt.Println("Auto-backup before flash (use --no-backup to skip)...")
 				deviceDir := filepath.Join(baseDir, device.Codename)
-				if backupErr := backup.ActionBackupWithLabel(serial, deviceDir,
+				if backupErr := backup.ActionBackupWithLabelCtx(ctx, serial, deviceDir,
 					"pre_patch_flash"); backupErr != nil {
 					fmt.Printf("  WARNING: backup failed: %v\n", backupErr)
 				}

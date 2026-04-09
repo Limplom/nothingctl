@@ -55,12 +55,18 @@ func FastbootFlash(serial, partition, imgPath string) error {
 	return FastbootFlashCtx(context.Background(), serial, partition, imgPath)
 }
 
-// FastbootFlashAB flashes both _a and _b slots for a base partition name.
-func FastbootFlashAB(serial, partition, imgPath string) error {
-	if err := FastbootFlash(serial, partition+"_a", imgPath); err != nil {
+// FastbootFlashABCtx flashes both _a and _b slots for a base partition name.
+// The context can be used to cancel the underlying fastboot processes.
+func FastbootFlashABCtx(ctx context.Context, serial, partition, imgPath string) error {
+	if err := FastbootFlashCtx(ctx, serial, partition+"_a", imgPath); err != nil {
 		return err
 	}
-	return FastbootFlash(serial, partition+"_b", imgPath)
+	return FastbootFlashCtx(ctx, serial, partition+"_b", imgPath)
+}
+
+// FastbootFlashAB flashes both _a and _b slots for a base partition name.
+func FastbootFlashAB(serial, partition, imgPath string) error {
+	return FastbootFlashABCtx(context.Background(), serial, partition, imgPath)
 }
 
 // WaitForFastbootCtx polls `fastboot devices` until the device with the given
@@ -123,12 +129,18 @@ func QueryCurrentSlot(serial string) (string, error) {
 	return "_" + m[1], nil
 }
 
+// RebootToBootloaderCtx reboots the device into fastboot mode and waits for it
+// to appear. ctx is forwarded to WaitForFastbootCtx so the caller can cancel.
+func RebootToBootloaderCtx(ctx context.Context, serial string) error {
+	fmt.Println("Rebooting to bootloader...")
+	Run([]string{"adb", "-s", serial, "reboot", "bootloader"})
+	return WaitForFastbootCtx(ctx, serial, int(fastbootPollTimeout.Seconds()))
+}
+
 // RebootToBootloader reboots the device into fastboot mode and waits for it
 // to appear.
 func RebootToBootloader(serial string) error {
-	fmt.Println("Rebooting to bootloader...")
-	Run([]string{"adb", "-s", serial, "reboot", "bootloader"})
-	return WaitForFastboot(serial, int(fastbootPollTimeout.Seconds()))
+	return RebootToBootloaderCtx(context.Background(), serial)
 }
 
 // FastbootRebootCtx reboots the device from fastboot mode back to Android.
@@ -202,9 +214,10 @@ func WaitForFastbootd(serial string, timeoutSec int) error {
 	return WaitForFastbootdCtx(context.Background(), serial, timeoutSec)
 }
 
-// RebootToFastbootd runs `fastboot reboot fastboot` then waits for the device
-// to enter userspace fastboot (fastbootd).
-func RebootToFastbootd(serial string) error {
+// RebootToFastbootdCtx runs `fastboot reboot fastboot` then waits for the
+// device to enter userspace fastboot (fastbootd). ctx is forwarded to
+// WaitForFastbootdCtx so the caller can cancel.
+func RebootToFastbootdCtx(ctx context.Context, serial string) error {
 	fmt.Println("Rebooting to fastbootd (userspace fastboot)...")
 	args := []string{"fastboot"}
 	if serial != "" {
@@ -212,12 +225,19 @@ func RebootToFastbootd(serial string) error {
 	}
 	args = append(args, "reboot", "fastboot")
 	Run(args) // ignore exit code — device may disconnect before returning
-	return WaitForFastbootd(serial, 90)
+	return WaitForFastbootdCtx(ctx, serial, 90)
 }
 
-// RebootToBootloaderFromFastbootd runs `fastboot reboot bootloader` from
+// RebootToFastbootd runs `fastboot reboot fastboot` then waits for the device
+// to enter userspace fastboot (fastbootd).
+func RebootToFastbootd(serial string) error {
+	return RebootToFastbootdCtx(context.Background(), serial)
+}
+
+// RebootToBootloaderFromFastbootdCtx runs `fastboot reboot bootloader` from
 // fastbootd mode, then waits for the device to appear in regular fastboot.
-func RebootToBootloaderFromFastbootd(serial string) error {
+// ctx is forwarded to WaitForFastbootCtx so the caller can cancel.
+func RebootToBootloaderFromFastbootdCtx(ctx context.Context, serial string) error {
 	fmt.Println("Rebooting to bootloader...")
 	args := []string{"fastboot"}
 	if serial != "" {
@@ -225,5 +245,11 @@ func RebootToBootloaderFromFastbootd(serial string) error {
 	}
 	args = append(args, "reboot", "bootloader")
 	Run(args)
-	return WaitForFastboot(serial, 60)
+	return WaitForFastbootCtx(ctx, serial, 60)
+}
+
+// RebootToBootloaderFromFastbootd runs `fastboot reboot bootloader` from
+// fastbootd mode, then waits for the device to appear in regular fastboot.
+func RebootToBootloaderFromFastbootd(serial string) error {
+	return RebootToBootloaderFromFastbootdCtx(context.Background(), serial)
 }

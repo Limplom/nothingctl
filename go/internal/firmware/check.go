@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Limplom/nothingctl/internal/adb"
-	nterrors "github.com/Limplom/nothingctl/internal/errors"
 )
 
 // CheckUpdate queries nothing_archive for the latest firmware release for the
@@ -33,28 +32,11 @@ func CheckUpdate(serial, codename string) error {
 
 	fmt.Println("\nChecking nothing_archive for updates...")
 
-	releases, err := FetchReleases(nothingArchiveOwner, nothingArchiveRepo)
+	release, latestTag, err := FetchLatestRelease(codename)
 	if err != nil {
-		return nterrors.FirmwareError("cannot reach GitHub API: " + err.Error())
+		return err
 	}
-
-	prefix := strings.ToLower(codename) + "_"
-	var matched []map[string]any
-	for _, r := range releases {
-		tag, _ := r["tag_name"].(string)
-		if strings.HasPrefix(strings.ToLower(tag), prefix) {
-			matched = append(matched, r)
-		}
-	}
-	if len(matched) == 0 {
-		return nterrors.FirmwareError(
-			fmt.Sprintf("no releases found for codename '%s' in nothing_archive.", codename),
-		)
-	}
-
-	latest := latestFromList(matched)
-	latestTag, _ := latest["tag_name"].(string)
-	htmlURL, _ := latest["html_url"].(string)
+	htmlURL, _ := release["html_url"].(string)
 
 	fmt.Printf("Latest    : %s\n", latestTag)
 

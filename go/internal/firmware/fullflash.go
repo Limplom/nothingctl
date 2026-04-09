@@ -150,7 +150,7 @@ func patchBootIfNeeded(serial, bootDir string, bootTarget models.BootTarget, pat
 // on any flash failure or context cancellation.
 func flashAllPartitionsCtx(ctx context.Context, serial, destDir, bootDir string, bootTarget models.BootTarget, bootImgToFlash string, skipLogical bool) error {
 	// 17. Reboot to bootloader.
-	if err := adb.RebootToBootloader(serial); err != nil {
+	if err := adb.RebootToBootloaderCtx(ctx, serial); err != nil {
 		return err
 	}
 
@@ -213,7 +213,7 @@ func flashAllPartitionsCtx(ctx context.Context, serial, destDir, bootDir string,
 	// 21. Flash logical partitions if not skipping.
 	logicalExtractDir := destDir
 	if !skipLogical {
-		if err := adb.RebootToFastbootd(serial); err != nil {
+		if err := adb.RebootToFastbootdCtx(ctx, serial); err != nil {
 			return err
 		}
 		fmt.Println("\n  Flashing logical partitions (fastbootd)...")
@@ -227,7 +227,7 @@ func flashAllPartitionsCtx(ctx context.Context, serial, destDir, bootDir string,
 			}
 			fmt.Println(" OK")
 		}
-		if err := adb.RebootToBootloaderFromFastbootd(serial); err != nil {
+		if err := adb.RebootToBootloaderFromFastbootdCtx(ctx, serial); err != nil {
 			return err
 		}
 	}

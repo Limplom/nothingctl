@@ -18,8 +18,7 @@ import (
 )
 
 const (
-	githubAPIBase = "https://api.github.com/repos/spike0en/nothing_archive"
-	userAgent     = "nothing-firmware-manager/2.0"
+	userAgent = "nothing-firmware-manager/2.0"
 )
 
 var dateTagRe = regexp.MustCompile(`-(\d{6})-`)
@@ -164,12 +163,9 @@ func FindAsset(release map[string]any, pattern string) (name, url string, found 
 			continue
 		}
 		assetName, _ := asset["name"].(string)
-		if len(assetName) >= len(pattern) {
-			// match suffix (same as Python endswith)
-			if len(assetName) >= len(pattern) && assetName[len(assetName)-len(pattern):] == pattern {
-				dl, _ := asset["browser_download_url"].(string)
-				return assetName, dl, true
-			}
+		if strings.HasSuffix(assetName, pattern) {
+			dl, _ := asset["browser_download_url"].(string)
+			return assetName, dl, true
 		}
 	}
 	return "", "", false
