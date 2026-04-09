@@ -45,28 +45,10 @@ func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*mod
 
 	fmt.Println("\nChecking nothing_archive...")
 
-	releases, err := FetchReleases(nothingArchiveOwner, nothingArchiveRepo)
+	latest, latestTag, err := FetchLatestRelease(codename)
 	if err != nil {
-		return nil, nterrors.FirmwareError("cannot reach GitHub API: " + err.Error())
+		return nil, nterrors.FirmwareError(err.Error())
 	}
-
-	// Filter to releases for this codename.
-	prefix := strings.ToLower(codename) + "_"
-	var matched []map[string]any
-	for _, r := range releases {
-		tag, _ := r["tag_name"].(string)
-		if strings.HasPrefix(strings.ToLower(tag), prefix) {
-			matched = append(matched, r)
-		}
-	}
-	if len(matched) == 0 {
-		return nil, nterrors.FirmwareError(
-			fmt.Sprintf("no releases found for codename '%s'.", codename),
-		)
-	}
-
-	latest := latestFromList(matched)
-	latestTag, _ := latest["tag_name"].(string)
 	fmt.Printf("  Latest  : %s\n", latestTag)
 
 	// Determine whether an update is available.

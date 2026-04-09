@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
@@ -101,6 +102,33 @@ func latestFromList(releases []map[string]any) map[string]any {
 		}
 	}
 	return best
+}
+
+// FetchLatestRelease returns the latest non-prerelease GitHub release map and
+// its tag string for the given device codename. It queries nothing_archive,
+// filters releases whose tag starts with "<codename>_", and picks the newest
+// one by the 6-digit date key embedded in the tag.
+func FetchLatestRelease(codename string) (release map[string]any, latestTag string, err error) {
+	releases, err := FetchReleases(nothingArchiveOwner, nothingArchiveRepo)
+	if err != nil {
+		return nil, "", fmt.Errorf("cannot reach GitHub API: %w", err)
+	}
+
+	prefix := strings.ToLower(codename) + "_"
+	var matched []map[string]any
+	for _, r := range releases {
+		tag, _ := r["tag_name"].(string)
+		if strings.HasPrefix(strings.ToLower(tag), prefix) {
+			matched = append(matched, r)
+		}
+	}
+	if len(matched) == 0 {
+		return nil, "", fmt.Errorf("no releases found for codename '%s' in nothing_archive", codename)
+	}
+
+	latest := latestFromList(matched)
+	tag, _ := latest["tag_name"].(string)
+	return latest, tag, nil
 }
 
 // FindAsset searches a release's asset list for the first asset whose name
