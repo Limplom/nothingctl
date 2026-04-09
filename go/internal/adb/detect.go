@@ -19,13 +19,22 @@ func DetectDevice(serial string) (*models.DeviceInfo, error) {
 
 	// Prefer the human-friendly brand name (e.g. "Nothing Phone (1)") over the
 	// raw model code (e.g. "A063") which Nothing uses for EEA variants.
-	brandName, _, _ := Run([]string{"adb", "-s", detectedSerial, "shell",
-		"getprop ro.product.brand_device_name"})
-	brandName = strings.TrimSpace(brandName)
+	const propScript = "getprop ro.product.brand_device_name; " +
+		"getprop ro.product.model; " +
+		"getprop ro.product.manufacturer; " +
+		"getprop ro.product.device; " +
+		"getprop ro.boot.slot_suffix"
 
-	modelCode, _, _ := Run([]string{"adb", "-s", detectedSerial, "shell",
-		"getprop ro.product.model"})
-	modelCode = strings.TrimSpace(modelCode)
+	out, _, _ := Run([]string{"adb", "-s", detectedSerial, "shell", propScript})
+	props := strings.SplitN(strings.ReplaceAll(out, "\r", ""), "\n", 6)
+	for len(props) < 5 {
+		props = append(props, "")
+	}
+	brandName    := strings.TrimSpace(props[0])
+	modelCode    := strings.TrimSpace(props[1])
+	manufacturer := strings.TrimSpace(props[2])
+	codename     := strings.TrimSpace(props[3])
+	slot         := strings.TrimSpace(props[4])
 
 	// Strip the manufacturer prefix so callers can prepend "Nothing " uniformly
 	// without duplication (e.g. "Nothing Phone (1)" → "Phone (1)").
@@ -37,20 +46,9 @@ func DetectDevice(serial string) (*models.DeviceInfo, error) {
 		model = modelCode
 	}
 
-	manufacturer, _, _ := Run([]string{"adb", "-s", detectedSerial, "shell",
-		"getprop ro.product.manufacturer"})
-	manufacturer = strings.TrimSpace(manufacturer)
-
-	codename, _, _ := Run([]string{"adb", "-s", detectedSerial, "shell",
-		"getprop ro.product.device"})
-	codename = strings.TrimSpace(codename)
 	if len(codename) > 0 {
 		codename = strings.ToUpper(codename[:1]) + codename[1:]
 	}
-
-	slot, _, _ := Run([]string{"adb", "-s", detectedSerial, "shell",
-		"getprop ro.boot.slot_suffix"})
-	slot = strings.TrimSpace(slot)
 
 	if !strings.Contains(strings.ToLower(manufacturer), "nothing") {
 		return nil, nterrors.FirmwareError(

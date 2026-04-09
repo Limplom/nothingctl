@@ -71,7 +71,7 @@ func ActionProcessTree(serial, packageName string) error {
 	if raw == "" {
 		return nterrors.AdbError("Failed to retrieve process list from device.")
 	}
-	model := adb.ShellStr(serial, "getprop ro.product.model")
+	model := adb.Model(serial)
 	procs := parsePS(raw)
 
 	fmt.Printf("\n  Process Tree \u2014 %s\n", model)
@@ -233,7 +233,7 @@ func parseWhitelist(output string) []string {
 
 // ActionDozeStatus shows Doze mode status and manages the battery-optimization whitelist.
 func ActionDozeStatus(serial, whitelistAdd, whitelistRemove string) error {
-	model := adb.ShellStr(serial, "getprop ro.product.model")
+	model := adb.Model(serial)
 
 	if whitelistAdd != "" {
 		result := adb.ShellStr(serial, "dumpsys deviceidle whitelist +"+whitelistAdd)
@@ -431,7 +431,7 @@ func formatCoord(lat, lon float64) string {
 
 // ActionLocation shows GPS/location status and optionally sets the location mode.
 func ActionLocation(serial, mode string) error {
-	model := adb.ShellStr(serial, "getprop ro.product.model")
+	model := adb.Model(serial)
 
 	if mode != "" {
 		numeric, ok := modeMap[strings.ToLower(mode)]

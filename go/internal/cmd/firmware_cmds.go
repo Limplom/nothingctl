@@ -356,6 +356,15 @@ func magiskCLIPatch(serial, localImg, extractedDir, imgName string) (string, err
 	temp := "/data/local/tmp"
 	remoteIn := temp + "/" + imgName
 
+	remoteOut := ""
+	defer func() {
+		toRemove := remoteIn
+		if remoteOut != "" {
+			toRemove += " " + remoteOut
+		}
+		adb.Run([]string{"adb", "-s", serial, "shell", "rm -f " + toRemove})
+	}()
+
 	fmt.Printf("  Pushing %s to device...\n", imgName)
 	if err := adb.AdbPush(serial, localImg, remoteIn); err != nil {
 		return "", err
@@ -367,7 +376,6 @@ func magiskCLIPatch(serial, localImg, extractedDir, imgName string) (string, err
 		"su -c 'magisk --patch-file " + remoteIn + "' && echo __PATCH_OK__",
 	})
 	if !strings.Contains(stdout, "__PATCH_OK__") {
-		adb.Run([]string{"adb", "-s", serial, "shell", "rm -f " + remoteIn})
 		return "", fmt.Errorf("magisk CLI patch failed — ensure Magisk is installed and root is granted.\nOutput: %s", strings.TrimSpace(stdout))
 	}
 
@@ -376,9 +384,8 @@ func magiskCLIPatch(serial, localImg, extractedDir, imgName string) (string, err
 		"adb", "-s", serial, "shell",
 		"ls -t " + temp + "/magisk_patched_*.img 2>/dev/null | head -1",
 	})
-	remoteOut := strings.TrimSpace(stdout2)
+	remoteOut = strings.TrimSpace(stdout2)
 	if remoteOut == "" {
-		adb.Run([]string{"adb", "-s", serial, "shell", "rm -f " + remoteIn})
 		return "", fmt.Errorf("patched image not found in %s after Magisk patch", temp)
 	}
 
@@ -390,7 +397,6 @@ func magiskCLIPatch(serial, localImg, extractedDir, imgName string) (string, err
 	if err := adb.AdbPull(serial, remoteOut, localPatched); err != nil {
 		return "", err
 	}
-	adb.Run([]string{"adb", "-s", serial, "shell", "rm -f " + remoteIn + " " + remoteOut})
 	return localPatched, nil
 }
 

@@ -100,7 +100,7 @@ func parseBatterystats(output string) []appDrain {
 
 // ActionBatteryStats shows per-app battery drain (wakelock times) and charge cycles.
 func ActionBatteryStats(serial string) error {
-	model := adb.ShellStr(serial, "getprop ro.product.model")
+	model := adb.Model(serial)
 
 	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "dumpsys battery"})
 	fields := parseDumpsysBattery(stdout)
@@ -219,7 +219,7 @@ var chargeLimitPaths = []string{
 
 // ActionChargingControl reads or sets the charge limit via sysfs.
 func ActionChargingControl(serial string, limit int) error {
-	model := adb.ShellStr(serial, "getprop ro.product.model")
+	model := adb.Model(serial)
 
 	// Detect which sysfs path exists
 	activePath := ""

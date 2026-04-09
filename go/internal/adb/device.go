@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -65,6 +66,32 @@ func AdbShellLines(serial, cmd string) ([]string, error) {
 		}
 	}
 	return lines, nil
+}
+
+// ParseShellLines splits raw ADB shell output on "\n", strips trailing "\r",
+// trims surrounding whitespace, and returns only non-empty lines.
+func ParseShellLines(output string) []string {
+	var lines []string
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(strings.TrimRight(line, "\r"))
+		if line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}
+
+var modelCache sync.Map
+
+// Model returns ro.product.model for the given serial, caching the result
+// for the lifetime of the process.
+func Model(serial string) string {
+	if v, ok := modelCache.Load(serial); ok {
+		return v.(string)
+	}
+	m := Prop(serial, "ro.product.model")
+	modelCache.Store(serial, m)
+	return m
 }
 
 // msysEnv returns a copy of the current environment with MSYS_NO_PATHCONV=1

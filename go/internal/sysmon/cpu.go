@@ -193,7 +193,7 @@ func cpuSnapshot(serial, model, soc string, topN int) {
 
 // ActionCPUUsage displays CPU frequency per core and top-N processes by CPU usage.
 func ActionCPUUsage(serial string, topN int, watch bool) error {
-	model := adb.Prop(serial, "ro.product.model")
+	model := adb.Model(serial)
 	soc := detectSOC(serial)
 
 	if watch {

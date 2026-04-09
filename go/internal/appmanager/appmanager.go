@@ -139,8 +139,7 @@ func parseAppInfo(serial, pkg string) (map[string]string, error) {
 	}
 	if apkPath == "" {
 		stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm list packages -f " + pkg})
-		for _, line := range strings.Split(stdout, "\n") {
-			line = strings.TrimSpace(line)
+		for _, line := range adb.ParseShellLines(stdout) {
 			if strings.HasPrefix(line, "package:") && strings.Contains(line, "="+pkg) {
 				line = strings.TrimPrefix(line, "package:")
 				parts := strings.Split(line, "=")
@@ -305,8 +304,7 @@ func ActionLaunchApp(serial, packageName, deepLink string) error {
 	// Interactive selection
 	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm list packages -3"})
 	var packages []string
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(strings.TrimRight(line, "\r"))
+	for _, line := range adb.ParseShellLines(stdout) {
 		if strings.HasPrefix(line, "package:") {
 			packages = append(packages, strings.TrimPrefix(line, "package:"))
 		}
@@ -372,8 +370,7 @@ func getAllPackages(serial string, includeSystem bool) ([]pkgRow, error) {
 	}
 
 	var rows []pkgRow
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(strings.TrimRight(line, "\r"))
+	for _, line := range adb.ParseShellLines(stdout) {
 		if !strings.HasPrefix(line, "package:") {
 			continue
 		}

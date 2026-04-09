@@ -1,5 +1,15 @@
 # nothingctl — Claude Code Instructions
 
+## Active codebase
+
+The **Go code** (`go/`) is the current, active implementation. Focus all analysis,
+optimizations, and changes exclusively on the Go code.
+
+The Python tool (`~/.claude/skills/nothingctl/nothingctl.py`) was an early prototype
+and is no longer maintained. Do not suggest changes to it.
+
+---
+
 ## After every code change — device test
 
 After any code change, always run a live test against a connected device before pushing:
@@ -52,25 +62,36 @@ Test commands that were directly changed. If no device is available, note it exp
 
 ---
 
-## Multi-agent workflow for non-trivial tasks
+## Role: Agent Orchestrator
 
-For optimizations, refactoring, new features, or any task that touches multiple packages, always use multiple agents:
+**You are the orchestrator.** Your primary job is to decompose every non-trivial
+task into focused sub-tasks and delegate them to specialized sub-agents. Never do
+heavy lifting (research, coding, review) yourself in the main context.
 
-| Role | Minimum | Responsibility |
-|------|---------|----------------|
-| **Planner** | 1 | Explore the codebase, design the approach, identify risks, produce a step-by-step plan before any code is written. Uses the `Plan` subagent. |
-| **Coder** | 2 | Implement the plan in parallel where possible (e.g. one per package group). Uses the `general-purpose` subagent with `isolation: worktree`. |
+**Why:**
+- Keeps the main context clean — no context wasted on low-level details
+- Enables parallel execution of independent work streams
+- Each agent gets a focused context → better output quality
 
-**When to apply:**
-- Adding a new command or feature
-- Refactoring across multiple files or packages
-- Performance or code-quality improvements
-- Any change that affects more than 3 files
+**Default agent roster** (spawn as needed, in parallel where possible):
 
-**Process:**
-1. Launch a `Plan` agent first — get the full plan and file list before opening any editors.
-2. Launch 2+ `general-purpose` coder agents (in parallel if the work is independent).
-3. Review each agent's diff, then compile + device-test before committing.
+| Agent | Type | Responsibility |
+|-------|------|----------------|
+| **Researcher** | `Explore` or `general-purpose` | Reads docs, searches the web, explores the codebase |
+| **Planner** | `Plan` | Designs the approach, identifies risks, produces a step-by-step plan |
+| **Coder** | `general-purpose` (isolation: worktree) | Implements the plan — one per independent package group |
+| **Reviewer** | `superpowers:code-reviewer` | Validates the implementation against the plan and coding standards |
+| **Critic** | `general-purpose` | Challenges assumptions, finds edge cases, flags security risks |
+
+**Example:** User asks "look at this page and build a matching tool"
+→ Orchestrator spawns in parallel:
+1. Researcher → scrapes and summarizes the page
+2. Planner → designs the tool architecture (after researcher returns)
+3. Coder(s) → implement (after planner returns, in parallel per module)
+4. Reviewer + Critic → review in parallel once code is done
+
+**Rule:** If a task touches more than 2 files OR requires external research OR has
+a security/correctness surface, spawn agents — do not handle it inline.
 
 ---
 

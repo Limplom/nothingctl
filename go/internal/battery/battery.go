@@ -89,7 +89,7 @@ func intField(fields map[string]string, key string) (int, bool) {
 
 // ActionBattery displays a battery health report for the connected Nothing phone.
 func ActionBattery(serial string) error {
-	model := adb.Prop(serial, "ro.product.model")
+	model := adb.Model(serial)
 
 	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "dumpsys battery"})
 	fields := parseDumpsysBattery(stdout)

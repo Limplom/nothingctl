@@ -17,8 +17,7 @@ const remoteTmp = "/data/local/tmp"
 func listUserPackages(serial string) []string {
 	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm list packages -3"})
 	var pkgs []string
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(strings.TrimRight(line, "\r"))
+	for _, line := range adb.ParseShellLines(stdout) {
 		if strings.HasPrefix(line, "package:") {
 			pkgs = append(pkgs, strings.TrimPrefix(line, "package:"))
 		}
@@ -28,8 +27,7 @@ func listUserPackages(serial string) []string {
 
 func apkPath(pkg, serial string) string {
 	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm path " + pkg})
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(strings.TrimRight(line, "\r"))
+	for _, line := range adb.ParseShellLines(stdout) {
 		if strings.HasPrefix(line, "package:") {
 			return strings.TrimPrefix(line, "package:")
 		}

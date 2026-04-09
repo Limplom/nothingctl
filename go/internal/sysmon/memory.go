@@ -221,10 +221,7 @@ func snapshotPackage(serial, model, pkg string) {
 
 // ActionMemory displays RAM usage, optionally watching, optionally for a specific package.
 func ActionMemory(serial, packageName string, watch bool) error {
-	model := func() string {
-		s, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop ro.product.model"})
-		return strings.TrimSpace(s)
-	}()
+	model := adb.Model(serial)
 
 	if watch {
 		label := "live memory"
