@@ -32,6 +32,9 @@ func SetVersion(v string) {
 	version = v
 }
 
+// GetVersion returns the current nothingctl version string.
+func GetVersion() string { return version }
+
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&flagSerial, "serial", "s", "", "target a specific device by serial number")
 	rootCmd.PersistentFlags().StringVar(&flagBaseDir, "base-dir", "", "override default storage root (~/.nothingctl)")

@@ -7,6 +7,7 @@ import (
 	"github.com/Limplom/nothingctl/internal/performance"
 	"github.com/Limplom/nothingctl/internal/prop"
 	"github.com/Limplom/nothingctl/internal/reboot"
+	"github.com/Limplom/nothingctl/internal/selfupdate"
 	"github.com/Limplom/nothingctl/internal/storage"
 )
 
@@ -83,5 +84,13 @@ var apkExtractCmd = &cobra.Command{
 			return err
 		}
 		return storage.ActionAPKExtract(serial, flagBaseDir, flagIncludeSystem)
+	},
+}
+
+var selfUpdateCmd = &cobra.Command{
+	Use:   "self-update",
+	Short: "Check for a newer nothingctl release and replace the running binary",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return selfupdate.ActionSelfUpdate(GetVersion(), flagDryRun)
 	},
 }

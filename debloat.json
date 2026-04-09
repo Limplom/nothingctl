@@ -12,49 +12,56 @@
       "package":  "com.facebook.katana",
       "name":     "Facebook",
       "category": "social",
-      "notes":    "Main Facebook app"
+      "notes":    "Main Facebook app",
+      "profiles": ["minimal","recommended","aggressive"]
     },
     {
       "id":       "facebook-services",
       "package":  "com.facebook.services",
       "name":     "Facebook Services",
       "category": "social",
-      "notes":    "Facebook background services (auto-restarts other FB apps)"
+      "notes":    "Facebook background services (auto-restarts other FB apps)",
+      "profiles": ["minimal","recommended","aggressive"]
     },
     {
       "id":       "facebook-appmanager",
       "package":  "com.facebook.appmanager",
       "name":     "Facebook App Manager",
       "category": "social",
-      "notes":    "Silently downloads/updates Facebook apps"
+      "notes":    "Silently downloads/updates Facebook apps",
+      "profiles": ["minimal","recommended","aggressive"]
     },
     {
       "id":       "facebook-system",
       "package":  "com.facebook.system",
       "name":     "Facebook System Service",
       "category": "social",
-      "notes":    "System-level Facebook persistence"
+      "notes":    "System-level Facebook persistence",
+      "profiles": ["minimal","recommended","aggressive"]
     },
     {
       "id":       "linkedin",
       "package":  "com.linkedin.android",
       "name":     "LinkedIn",
       "category": "social",
-      "notes":    "Professional network app"
+      "notes":    "Professional network app",
+      "profiles": ["minimal","recommended","aggressive"]
     },
     {
       "id":       "nothing-news",
       "package":  "ly.nothing.news",
       "name":     "Nothing News",
       "category": "nothing",
-      "notes":    "Nothing news/feed widget — removable if unused"
+      "notes":    "Nothing news/feed widget — removable if unused",
+      "profiles": ["recommended","aggressive"]
     },
     {
       "id":       "nothing-community",
       "package":  "community.nothing.phone",
       "name":     "Nothing Community",
       "category": "nothing",
-      "notes":    "Nothing forum app"
+      "notes":    "Nothing forum app",
+      "profiles": ["recommended","aggressive"]
     }
   ]
 }

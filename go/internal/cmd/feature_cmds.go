@@ -68,6 +68,10 @@ var (
 
 	// modules flags
 	flagModuleIDs string
+	flagForce     bool
+
+	// verify-backup flags
+	flagLive bool
 
 	// doze flags
 	flagWhitelistAdd    string
@@ -116,6 +120,7 @@ func init() {
 
 	debloatCmd.Flags().StringVar(&flagRemove, "remove", "", "comma-separated bloatware IDs to disable")
 	debloatCmd.Flags().StringVar(&flagInstall, "restore", "", "comma-separated bloatware IDs to restore")
+	debloatCmd.Flags().StringVar(&flagProfile, "profile", "", "debloat profile: minimal | recommended | aggressive")
 	rootCmd.AddCommand(debloatCmd)
 
 	modulesCmd.Flags().StringVar(&flagInstall, "install", "", "comma-separated module IDs to install, or 'all'")
@@ -126,6 +131,9 @@ func init() {
 	modulesToggleCmd.Flags().StringVar(&flagModuleIDs, "modules", "", "comma-separated module IDs")
 	modulesToggleCmd.Flags().BoolVar(&flagEnable, "enable", true, "true to enable, false to disable")
 	rootCmd.AddCommand(modulesToggleCmd)
+
+	modulesUpdateAllCmd.Flags().BoolVar(&flagForce, "force", false, "skip confirmation prompt")
+	rootCmd.AddCommand(modulesUpdateAllCmd)
 
 	// ── System Info & Monitoring ─────────────────────────────────────────────
 
@@ -284,6 +292,10 @@ func init() {
 	apkExtractCmd.Flags().StringVar(&flagPackage, "package", "", "package name to extract (empty = all user apps)")
 	apkExtractCmd.Flags().BoolVar(&flagIncludeSystem, "include-system", false, "include system apps")
 	rootCmd.AddCommand(apkExtractCmd)
+
+	selfUpdateCmd.Flags().BoolVar(&flagDryRun, "dry-run", false,
+		"print what would be downloaded without replacing the binary")
+	rootCmd.AddCommand(selfUpdateCmd)
 }
 
 // ---------------------------------------------------------------------------

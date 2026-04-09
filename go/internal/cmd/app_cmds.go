@@ -120,6 +120,9 @@ var debloatCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		if flagProfile != "" {
+			return debloat.ActionDebloatProfile(serial, flagProfile)
+		}
 		if flagInstall != "" {
 			return debloat.ActionRestoreDebloat(serial, splitCSV(flagInstall))
 		}
@@ -160,5 +163,17 @@ var modulesToggleCmd = &cobra.Command{
 			return err
 		}
 		return modules.ActionModulesToggle(serial, splitCSV(flagModuleIDs), flagEnable)
+	},
+}
+
+var modulesUpdateAllCmd = &cobra.Command{
+	Use:   "modules-update-all",
+	Short: "Update all installed Magisk modules to latest GitHub releases",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		serial, err := adb.EnsureDevice(flagSerial)
+		if err != nil {
+			return err
+		}
+		return modules.ActionModulesUpdateAll(serial, resolveBaseDir(), flagForce)
 	},
 }

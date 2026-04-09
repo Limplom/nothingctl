@@ -20,6 +20,11 @@ var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Show full device dashboard",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if flagSerial == "all" {
+			return runOnAllDevices(func(s string) error {
+				return info.ActionInfo(s)
+			})
+		}
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err
@@ -32,6 +37,11 @@ var batteryCmd = &cobra.Command{
 	Use:   "battery",
 	Short: "Show battery health report",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if flagSerial == "all" {
+			return runOnAllDevices(func(s string) error {
+				return battery.ActionBattery(s)
+			})
+		}
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err

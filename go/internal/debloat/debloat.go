@@ -13,11 +13,12 @@ import (
 
 // PackageEntry represents a single debloat entry from debloat.json.
 type PackageEntry struct {
-	ID       string `json:"id"`
-	Package  string `json:"package"`
-	Name     string `json:"name"`
-	Category string `json:"category"`
-	Notes    string `json:"notes"`
+	ID       string   `json:"id"`
+	Package  string   `json:"package"`
+	Name     string   `json:"name"`
+	Category string   `json:"category"`
+	Notes    string   `json:"notes"`
+	Profiles []string `json:"profiles,omitempty"`
 }
 
 type debloatJSON struct {
@@ -140,6 +141,29 @@ func ActionDebloat(serial string, removeIDs []string) error {
 		fmt.Printf("  adb shell pm install-existing --user 0 %s\n", p.Package)
 	}
 	return nil
+}
+
+// ActionDebloatProfile disables all packages tagged with the given profile.
+// Valid profiles: "minimal", "recommended", "aggressive".
+func ActionDebloatProfile(serial, profile string) error {
+	packages, err := loadPackages()
+	if err != nil {
+		return err
+	}
+	var ids []string
+	for _, p := range packages {
+		for _, pr := range p.Profiles {
+			if pr == profile {
+				ids = append(ids, p.ID)
+				break
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return fmt.Errorf("no packages tagged with profile %q — valid profiles: minimal, recommended, aggressive", profile)
+	}
+	fmt.Printf("  Applying debloat profile: %s (%d packages)\n\n", profile, len(ids))
+	return ActionDebloat(serial, ids)
 }
 
 // ActionRestoreDebloat reinstalls removed packages for the given IDs.

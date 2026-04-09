@@ -50,6 +50,8 @@ func init() {
 	// verify-backup
 	verifyBackupCmd.Flags().StringVar(&flagRestoreDir, "restore-dir", "",
 		"path to a specific backup directory to verify")
+	verifyBackupCmd.Flags().BoolVar(&flagLive, "live", false,
+		"compare checksums against live device partitions via adb (requires root)")
 	rootCmd.AddCommand(verifyBackupCmd)
 
 	// firmware commands
@@ -160,13 +162,14 @@ var verifyBackupCmd = &cobra.Command{
 	Use:   "verify-backup",
 	Short: "Re-hash backup images and compare against stored checksums",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Always resolve serial — both live and offline paths may need it.
+		serial, err := adb.EnsureDevice(flagSerial)
+		if err != nil {
+			return err
+		}
+
 		backupDir := flagRestoreDir
 		if backupDir == "" {
-			// Need device to find the codename-specific backup root.
-			serial, err := adb.EnsureDevice(flagSerial)
-			if err != nil {
-				return err
-			}
 			device, err := adb.DetectDevice(serial)
 			if err != nil {
 				return err
@@ -176,6 +179,10 @@ var verifyBackupCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
+		}
+
+		if flagLive {
+			return backup.ActionVerifyBackupLive(serial, backupDir)
 		}
 		return backup.ActionVerifyBackup(backupDir)
 	},
@@ -574,6 +581,12 @@ var rootStatusCmd = &cobra.Command{
 	Use:   "root-status",
 	Short: "Detect and display active root manager (Magisk / KernelSU / APatch)",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if flagSerial == "all" {
+			return runOnAllDevices(func(s string) error {
+				magisk.PrintRootStatus(s)
+				return nil
+			})
+		}
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err
@@ -596,6 +609,15 @@ device codename, and reports whether an update is available.
 
 No files are downloaded — use ota-update to download and flash.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if flagSerial == "all" {
+			return runOnAllDevices(func(s string) error {
+				dev, err := adb.DetectDevice(s)
+				if err != nil {
+					return err
+				}
+				return firmware.CheckUpdate(s, dev.Codename)
+			})
+		}
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err

@@ -93,6 +93,26 @@ func Model(serial string) string {
 	return m
 }
 
+// ListDevices returns the ADB serials of all currently attached devices.
+func ListDevices() ([]string, error) {
+	stdout, _, _ := Run([]string{"adb", "devices"})
+	var serials []string
+	for _, line := range strings.Split(stdout, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if line == "" || strings.HasPrefix(line, "List") || strings.HasPrefix(line, "*") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[1] == "device" {
+			serials = append(serials, fields[0])
+		}
+	}
+	if len(serials) == 0 {
+		return nil, fmt.Errorf("no ADB devices found")
+	}
+	return serials, nil
+}
+
 // msysEnv returns a copy of the current environment with MSYS_NO_PATHCONV=1
 // appended on Windows so that MSYS/Git-Bash does not mangle device paths.
 func msysEnv() []string {
