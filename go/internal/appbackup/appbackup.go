@@ -38,7 +38,7 @@ func apkPath(pkg, serial string) string {
 func appUID(pkg, serial string) string {
 	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
 		"dumpsys package " + pkg + " | grep -m1 userId="})
-	for _, line := range strings.Split(stdout, "\n") {
+	for _, line := range adb.ParseShellLines(stdout) {
 		if strings.Contains(line, "userId=") {
 			for _, tok := range strings.Fields(line) {
 				if strings.HasPrefix(tok, "userId=") {

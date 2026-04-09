@@ -119,11 +119,8 @@ func actionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label, passw
 		"adb", "-s", serial, "shell", "su -c 'ls /dev/block/by-name/'",
 	})
 	existingSet := make(map[string]bool)
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(strings.TrimRight(line, "\r"))
-		if line != "" {
-			existingSet[line] = true
-		}
+	for _, line := range adb.ParseShellLines(stdout) {
+		existingSet[line] = true
 	}
 
 	var toDump []string

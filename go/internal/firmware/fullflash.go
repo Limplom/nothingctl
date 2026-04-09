@@ -157,6 +157,7 @@ func flashAllPartitionsCtx(ctx context.Context, serial, destDir, bootDir string,
 	// 18. Flash firmware partitions (skip any not exposed by this bootloader).
 	fmt.Println("\n  Flashing firmware partitions...")
 	firmwareExtractDir := destDir
+outerFirmware:
 	for _, part := range ScanAvailableImages(firmwareExtractDir, firmwarePartitions) {
 		fmt.Printf("    %s...", part)
 		// Flash both A/B slots with ctx.Err() guard before each slot.
@@ -167,13 +168,12 @@ func flashAllPartitionsCtx(ctx context.Context, serial, destDir, bootDir string,
 			if err := adb.FastbootFlashCtx(ctx, serial, part+slot, ImgPath(firmwareExtractDir, part)); err != nil {
 				if strings.Contains(err.Error(), "partition does not exist") {
 					fmt.Println(" skipped (not exposed by bootloader)")
-					goto nextFirmware
+					continue outerFirmware
 				}
 				return err
 			}
 		}
 		fmt.Println(" OK")
-	nextFirmware:
 	}
 
 	// 19. Flash boot partitions (excluding the main boot target handled separately).

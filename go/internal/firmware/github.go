@@ -21,6 +21,12 @@ const (
 	userAgent = "nothing-firmware-manager/2.0"
 )
 
+// ghClient is a package-level HTTP client that reuses TCP connections
+// across GitHub API calls and firmware downloads.
+var ghClient = &http.Client{
+	Timeout: 15 * time.Minute, // generous timeout for large firmware downloads
+}
+
 var dateTagRe = regexp.MustCompile(`-(\d{6})-`)
 
 // GhGetCtx performs an HTTP GET against the nothing_archive GitHub API and
@@ -28,14 +34,15 @@ var dateTagRe = regexp.MustCompile(`-(\d{6})-`)
 // with the rate-limit reset time when a 403/429 is received. The request is
 // bound to ctx so callers can cancel or time-out the call.
 func GhGetCtx(ctx context.Context, url string) ([]byte, error) {
-	client := &http.Client{Timeout: 20 * time.Second}
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	apiCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(apiCtx, "GET", url, nil)
 	if err != nil {
 		return nil, nterrors.FirmwareError("building request: " + err.Error())
 	}
 	req.Header.Set("User-Agent", userAgent)
 
-	resp, err := client.Do(req)
+	resp, err := ghClient.Do(req)
 	if err != nil {
 		return nil, nterrors.FirmwareError("HTTP GET failed: " + err.Error())
 	}
@@ -181,14 +188,13 @@ func DownloadFileCtx(ctx context.Context, url, destPath string, progressFn func(
 		return nterrors.FirmwareError("creating destination directory: " + err.Error())
 	}
 
-	client := &http.Client{Timeout: 10 * time.Minute}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nterrors.FirmwareError("building download request: " + err.Error())
 	}
 	req.Header.Set("User-Agent", userAgent)
 
-	resp, err := client.Do(req)
+	resp, err := ghClient.Do(req)
 	if err != nil {
 		return nterrors.FirmwareError("download request failed: " + err.Error())
 	}
