@@ -2,6 +2,7 @@ package firmware
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/Limplom/nothingctl/internal/adb"
@@ -12,10 +13,15 @@ import (
 // device attached to serial and prints a status summary. It never downloads
 // anything — use ResolveFirmware for that.
 func CheckUpdate(serial, codename string) error {
-	currentVersion, _, _ := adb.Run([]string{
+	currentVersion, stderr, exitCode := adb.Run([]string{
 		"adb", "-s", serial, "shell", "getprop ro.build.display.id",
 	})
 	currentVersion = strings.TrimSpace(currentVersion)
+	if exitCode != 0 || currentVersion == "" {
+		fmt.Fprintf(os.Stderr, "WARNING: could not read device firmware version (exit %d: %s)\n",
+			exitCode, strings.TrimSpace(stderr))
+		fmt.Println("         Version comparison will be skipped — update check continues.")
+	}
 
 	fmt.Printf("Device    : %s\n", codename)
 	fmt.Printf("Firmware  : %s\n", func() string {

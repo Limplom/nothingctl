@@ -260,7 +260,9 @@ func encryptBackup(localDir, password string) error {
 		if err := encryptFileWithSalt(imgPath, encPath, password, saltBytes); err != nil {
 			return err
 		}
-		os.Remove(imgPath)
+		if rmErr := os.Remove(imgPath); rmErr != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: could not remove %s: %v\n", imgPath, rmErr)
+		}
 	}
 
 	fmt.Printf("  Encrypted %d partition images.\n", len(images))
@@ -296,7 +298,9 @@ func decryptBackup(localDir, password string) error {
 		if err := decryptFileWithSalt(encPath, imgPath, password, saltBytes); err != nil {
 			return err
 		}
-		os.Remove(encPath)
+		if rmErr := os.Remove(encPath); rmErr != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: could not remove %s: %v\n", encPath, rmErr)
+		}
 	}
 
 	fmt.Printf("  Decrypted %d partition images.\n", len(encImages))

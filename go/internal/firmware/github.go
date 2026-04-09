@@ -107,9 +107,15 @@ func latestFromList(releases []map[string]any) map[string]any {
 // contains pattern. Returns the asset name, download URL, and whether it was
 // found.
 func FindAsset(release map[string]any, pattern string) (name, url string, found bool) {
-	assets, _ := release["assets"].([]any)
+	assets, ok := release["assets"].([]any)
+	if !ok {
+		return "", "", false
+	}
 	for _, a := range assets {
-		asset, _ := a.(map[string]any)
+		asset, ok := a.(map[string]any)
+		if !ok {
+			continue
+		}
 		assetName, _ := asset["name"].(string)
 		if len(assetName) >= len(pattern) {
 			// match suffix (same as Python endswith)

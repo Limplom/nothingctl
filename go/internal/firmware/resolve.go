@@ -26,10 +26,14 @@ const (
 // a cached copy exists.
 func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*models.FirmwareState, error) {
 	// Read current build version from device.
-	currentVersion, _, _ := adb.Run([]string{
+	currentVersion, stderr, exitCode := adb.Run([]string{
 		"adb", "-s", serial, "shell", "getprop ro.build.display.id",
 	})
 	currentVersion = strings.TrimSpace(currentVersion)
+	if exitCode != 0 || currentVersion == "" {
+		fmt.Fprintf(os.Stderr, "WARNING: could not read current firmware version from device (exit %d: %s)\n",
+			exitCode, strings.TrimSpace(stderr))
+	}
 
 	fmt.Printf("  Codename: %s\n", codename)
 	fmt.Printf("  Current : %s\n", func() string {
@@ -97,9 +101,15 @@ func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*mod
 
 		// Determine size for human-readable output.
 		var sizeMB int
-		assets, _ := latest["assets"].([]any)
+		assets, ok := latest["assets"].([]any)
+		if !ok {
+			return nil, fmt.Errorf("GitHub release JSON: 'assets' field is not an array")
+		}
 		for _, a := range assets {
-			asset, _ := a.(map[string]any)
+			asset, ok := a.(map[string]any)
+			if !ok {
+				continue
+			}
 			name, _ := asset["name"].(string)
 			if name == assetName {
 				size, _ := asset["size"].(float64)
@@ -118,7 +128,9 @@ func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*mod
 			return nil, err
 		}
 		// Remove the archive after extraction to save space.
-		os.Remove(archivePath)
+		if rmErr := os.Remove(archivePath); rmErr != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: could not remove %s: %v\n", archivePath, rmErr)
+		}
 	}
 
 	bootTarget, err := DetectBootTarget(destDir)
@@ -182,7 +194,9 @@ func DownloadFirmwareArchive(assets []map[string]any, destDir string, force bool
 	if err := Extract7z(archivePath, destDir); err != nil {
 		return err
 	}
-	os.Remove(archivePath)
+	if rmErr := os.Remove(archivePath); rmErr != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: could not remove %s: %v\n", archivePath, rmErr)
+	}
 	return nil
 }
 
@@ -228,7 +242,10 @@ func DownloadLogicalArchive(assets []map[string]any, destDir string, force bool)
 	}
 	// Delete downloaded parts to reclaim disk space
 	for _, p := range parts {
-		os.Remove(filepath.Join(destDir, p.name))
+		path := filepath.Join(destDir, p.name)
+		if rmErr := os.Remove(path); rmErr != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: could not remove archive part %s: %v\n", path, rmErr)
+		}
 	}
 	return nil
 }

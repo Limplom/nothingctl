@@ -200,7 +200,9 @@ func ActionFullFlash(serial, codename, baseDir string, forceDownload, skipLogica
 
 	// 22. Reboot to system.
 	fmt.Println("\nRebooting to system...")
-	adb.FastbootReboot(serial)
+	if err := adb.FastbootReboot(serial); err != nil {
+		fmt.Printf("  WARNING: reboot failed: %v\n", err)
+	}
 
 	// 23. Print success summary.
 	fmt.Printf("\n[OK] Full flash complete. Device is now on %s.\n", latestTag)
