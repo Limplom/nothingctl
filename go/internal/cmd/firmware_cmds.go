@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -93,6 +96,9 @@ var backupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Dump all critical partitions from device to local storage (requires root)",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err
@@ -102,7 +108,7 @@ var backupCmd = &cobra.Command{
 			return err
 		}
 		baseDir := filepath.Join(resolveBaseDir(), device.Codename)
-		return backup.ActionBackup(serial, baseDir)
+		return backup.ActionBackupCtx(ctx, serial, baseDir)
 	},
 }
 
@@ -183,6 +189,9 @@ var flashFirmwareCmd = &cobra.Command{
 	Use:   "flash-firmware",
 	Short: "Download latest firmware and flash boot partitions to both A/B slots",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err
@@ -213,7 +222,7 @@ var flashFirmwareCmd = &cobra.Command{
 			if adb.CheckAdbRoot(serial) {
 				fmt.Println("\nAuto-backup before flash (use --no-backup to skip)...")
 				deviceDir := filepath.Join(baseDir, device.Codename)
-				if backupErr := backup.ActionBackupWithLabel(serial, deviceDir,
+				if backupErr := backup.ActionBackupWithLabelCtx(ctx, serial, deviceDir,
 					"pre_flash_"+fw.Version); backupErr != nil {
 					fmt.Printf("  WARNING: backup failed: %v\n", backupErr)
 				}
@@ -234,6 +243,9 @@ var flashFirmwareCmd = &cobra.Command{
 		fmt.Printf("Active slot: %s\n", slot)
 
 		for _, part := range partitions {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			imgPath := filepath.Join(fw.ExtractedDir, part+".img")
 			if _, err := os.Stat(imgPath); err != nil {
 				fmt.Printf("  Skipping %s (image not found in package)\n", part)
@@ -268,6 +280,9 @@ var otaUpdateCmd = &cobra.Command{
 	Use:   "ota-update",
 	Short: "One-shot: download latest firmware and flash patched boot image (preserves root)",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err
@@ -317,7 +332,7 @@ var otaUpdateCmd = &cobra.Command{
 		if !flagNoBackup {
 			fmt.Println("\nAuto-backup before flash (use --no-backup to skip)...")
 			deviceDir := filepath.Join(baseDir, device.Codename)
-			if backupErr := backup.ActionBackupWithLabel(serial, deviceDir,
+			if backupErr := backup.ActionBackupWithLabelCtx(ctx, serial, deviceDir,
 				"pre_ota_"+fw.Version); backupErr != nil {
 				fmt.Printf("  WARNING: backup failed: %v\n", backupErr)
 			}
@@ -604,6 +619,9 @@ If Magisk root is active, init_boot is patched before flashing to preserve root.
 
 Requires fastboot access. Device must be connected via USB.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err
@@ -616,7 +634,8 @@ Requires fastboot access. Device must be connected via USB.`,
 			patchFunc = magisk.MagiskCLIPatch
 		}
 
-		return firmware.ActionFullFlash(
+		return firmware.ActionFullFlashCtx(
+			ctx,
 			serial,
 			codename,
 			resolveBaseDir(),

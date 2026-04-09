@@ -1,6 +1,7 @@
 package adb
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -20,11 +21,12 @@ var currentSlotRe = regexp.MustCompile(`current-slot:\s*([ab])`)
 // Fastboot helpers
 // ---------------------------------------------------------------------------
 
-// FastbootRun runs `fastboot -s <serial> <args...>` and returns combined
+// FastbootRunCtx runs `fastboot -s <serial> <args...>` and returns combined
 // stdout+stderr. Returns a FlashError on non-zero exit.
-func FastbootRun(serial string, args []string) (string, error) {
+// The context can be used to cancel the underlying process.
+func FastbootRunCtx(ctx context.Context, serial string, args []string) (string, error) {
 	cmdArgs := append([]string{"fastboot", "-s", serial}, args...)
-	stdout, stderr, code := Run(cmdArgs)
+	stdout, stderr, code := RunCtx(ctx, cmdArgs)
 	combined := stdout + stderr
 	if code != 0 {
 		return combined, nterrors.FlashError(
@@ -34,11 +36,23 @@ func FastbootRun(serial string, args []string) (string, error) {
 	return combined, nil
 }
 
+// FastbootRun runs `fastboot -s <serial> <args...>` and returns combined
+// stdout+stderr. Returns a FlashError on non-zero exit.
+func FastbootRun(serial string, args []string) (string, error) {
+	return FastbootRunCtx(context.Background(), serial, args)
+}
+
+// FastbootFlashCtx flashes a single partition image.
+// The context can be used to cancel the underlying fastboot process.
+func FastbootFlashCtx(ctx context.Context, serial, partition, imgPath string) error {
+	fmt.Printf("  Flashing %-20s <- %s\n", partition, imgPath)
+	_, err := FastbootRunCtx(ctx, serial, []string{"flash", partition, imgPath})
+	return err
+}
+
 // FastbootFlash flashes a single partition image.
 func FastbootFlash(serial, partition, imgPath string) error {
-	fmt.Printf("  Flashing %-20s <- %s\n", partition, imgPath)
-	_, err := FastbootRun(serial, []string{"flash", partition, imgPath})
-	return err
+	return FastbootFlashCtx(context.Background(), serial, partition, imgPath)
 }
 
 // FastbootFlashAB flashes both _a and _b slots for a base partition name.
@@ -49,34 +63,51 @@ func FastbootFlashAB(serial, partition, imgPath string) error {
 	return FastbootFlash(serial, partition+"_b", imgPath)
 }
 
-// WaitForFastboot polls `fastboot devices` until the device with the given
-// serial appears, or until timeoutSec seconds have elapsed.
-func WaitForFastboot(serial string, timeoutSec int) error {
+// WaitForFastbootCtx polls `fastboot devices` until the device with the given
+// serial appears, the timeout elapses, or ctx is cancelled.
+func WaitForFastbootCtx(ctx context.Context, serial string, timeoutSec int) error {
 	timeout := time.Duration(timeoutSec) * time.Second
 	if timeoutSec <= 0 {
 		timeout = fastbootPollTimeout
 	}
 
 	fmt.Print("Waiting for fastboot device")
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		stdout, _, _ := Run([]string{"fastboot", "devices"})
-		if (serial != "" && strings.Contains(stdout, serial)) ||
-			(strings.TrimSpace(stdout) != "" && strings.Contains(stdout, "fastboot")) {
-			fmt.Println(" OK")
-			return nil
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(fastbootPollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeoutCtx.Done():
+			fmt.Println()
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return nterrors.FastbootTimeout(
+				"fastboot device not found after timeout.\n" +
+					"Check: USB cable and fastboot driver.\n" +
+					"  Windows : install WinUSB driver via Zadig (zadig.akeo.ie)\n" +
+					"  macOS   : brew install android-platform-tools\n" +
+					"  Linux   : add udev rules or run as root",
+			)
+		case <-ticker.C:
+			stdout, _, _ := Run([]string{"fastboot", "devices"})
+			if (serial != "" && strings.Contains(stdout, serial)) ||
+				(strings.TrimSpace(stdout) != "" && strings.Contains(stdout, "fastboot")) {
+				fmt.Println(" OK")
+				return nil
+			}
+			fmt.Print(".")
 		}
-		fmt.Print(".")
-		time.Sleep(fastbootPollInterval)
 	}
-	fmt.Println()
-	return nterrors.FastbootTimeout(
-		"fastboot device not found after timeout.\n" +
-			"Check: USB cable and fastboot driver.\n" +
-			"  Windows : install WinUSB driver via Zadig (zadig.akeo.ie)\n" +
-			"  macOS   : brew install android-platform-tools\n" +
-			"  Linux   : add udev rules or run as root",
-	)
+}
+
+// WaitForFastboot polls `fastboot devices` until the device with the given
+// serial appears, or until timeoutSec seconds have elapsed.
+func WaitForFastboot(serial string, timeoutSec int) error {
+	return WaitForFastbootCtx(context.Background(), serial, timeoutSec)
 }
 
 // QueryCurrentSlot returns the active A/B slot suffix ("_a" or "_b") reported
@@ -100,10 +131,16 @@ func RebootToBootloader(serial string) error {
 	return WaitForFastboot(serial, int(fastbootPollTimeout.Seconds()))
 }
 
+// FastbootRebootCtx reboots the device from fastboot mode back to Android.
+// The context can be used to cancel the underlying fastboot process.
+func FastbootRebootCtx(ctx context.Context, serial string) error {
+	_, err := FastbootRunCtx(ctx, serial, []string{"reboot"})
+	return err
+}
+
 // FastbootReboot reboots the device from fastboot mode back to Android.
 func FastbootReboot(serial string) error {
-	_, err := FastbootRun(serial, []string{"reboot"})
-	return err
+	return FastbootRebootCtx(context.Background(), serial)
 }
 
 // FastbootGetVar queries a fastboot variable and returns its value string.
@@ -125,26 +162,44 @@ func FastbootGetVar(serial, variable string) (string, error) {
 	return strings.TrimSpace(stdout), nil
 }
 
+// WaitForFastbootdCtx polls until the device enters userspace fastboot (fastbootd),
+// the timeout elapses, or ctx is cancelled.
+// It checks `fastboot getvar is-userspace` for the value "yes".
+func WaitForFastbootdCtx(ctx context.Context, serial string, timeoutSec int) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeoutCtx.Done():
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return fmt.Errorf("fastbootd device not found after %d seconds", timeoutSec)
+		case <-ticker.C:
+			args := []string{"fastboot"}
+			if serial != "" {
+				args = append(args, "-s", serial)
+			}
+			args = append(args, "getvar", "is-userspace")
+			stdout, stderr, _ := Run(args)
+			combined := stdout + stderr
+			if strings.Contains(combined, "is-userspace: yes") {
+				return nil
+			}
+			fmt.Print(".")
+		}
+	}
+}
+
 // WaitForFastbootd polls until the device enters userspace fastboot (fastbootd).
 // It checks `fastboot getvar is-userspace` for the value "yes".
 // Returns an error after timeoutSec seconds.
 func WaitForFastbootd(serial string, timeoutSec int) error {
-	deadline := time.Now().Add(time.Duration(timeoutSec) * time.Second)
-	for time.Now().Before(deadline) {
-		args := []string{"fastboot"}
-		if serial != "" {
-			args = append(args, "-s", serial)
-		}
-		args = append(args, "getvar", "is-userspace")
-		stdout, stderr, _ := Run(args)
-		combined := stdout + stderr
-		if strings.Contains(combined, "is-userspace: yes") {
-			return nil
-		}
-		time.Sleep(2 * time.Second)
-		fmt.Print(".")
-	}
-	return fmt.Errorf("fastbootd device not found after %d seconds", timeoutSec)
+	return WaitForFastbootdCtx(context.Background(), serial, timeoutSec)
 }
 
 // RebootToFastbootd runs `fastboot reboot fastboot` then waits for the device

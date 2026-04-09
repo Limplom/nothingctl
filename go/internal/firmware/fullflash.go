@@ -1,6 +1,7 @@
 package firmware
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -56,10 +57,12 @@ func printFlashBanner(model, currentVersion, latestTag string, patchBoot BootPat
 	return adb.Confirm("This replaces ALL firmware partitions. Continue?")
 }
 
-// downloadFlashArchives downloads the boot, firmware, and optional logical
+// downloadFlashArchivesCtx downloads the boot, firmware, and optional logical
 // archives for the given release into baseDir. Returns the firmware/logical
 // extract directory, the boot images directory, and the detected boot target.
-func downloadFlashArchives(
+// The request is bound to ctx so callers can cancel or time-out the operation.
+func downloadFlashArchivesCtx(
+	ctx context.Context,
 	release map[string]any,
 	serial, codename, baseDir, latestTag string,
 	forceDownload, skipLogical bool,
@@ -76,9 +79,9 @@ func downloadFlashArchives(
 		}
 	}
 
-	// 13. Download boot archive (image-boot) via ResolveFirmware.
+	// 13. Download boot archive (image-boot) via ResolveFirmwareCtx.
 	fmt.Println("\nResolving boot images...")
-	fw, fwErr := ResolveFirmware(serial, codename, baseDir, forceDownload)
+	fw, fwErr := ResolveFirmwareCtx(ctx, serial, codename, baseDir, forceDownload)
 	if fwErr != nil {
 		err = fwErr
 		return
@@ -89,7 +92,7 @@ func downloadFlashArchives(
 	// 14. Download firmware archive.
 	fmt.Println("\nDownloading firmware archive...")
 	firmwareExtractDir := destDir
-	if dlErr := DownloadFirmwareArchive(assetMaps, firmwareExtractDir, forceDownload); dlErr != nil {
+	if dlErr := DownloadFirmwareArchiveCtx(ctx, assetMaps, firmwareExtractDir, forceDownload); dlErr != nil {
 		err = fmt.Errorf("firmware archive download failed: %w", dlErr)
 		return
 	}
@@ -98,12 +101,22 @@ func downloadFlashArchives(
 	logicalExtractDir := destDir
 	if !skipLogical {
 		fmt.Println("\nDownloading logical partition archive (~4 GB)...")
-		if dlErr := DownloadLogicalArchive(assetMaps, logicalExtractDir, forceDownload); dlErr != nil {
+		if dlErr := DownloadLogicalArchiveCtx(ctx, assetMaps, logicalExtractDir, forceDownload); dlErr != nil {
 			err = fmt.Errorf("logical archive download failed: %w", dlErr)
 			return
 		}
 	}
 	return
+}
+
+// downloadFlashArchives is a convenience shim around downloadFlashArchivesCtx
+// that uses context.Background().
+func downloadFlashArchives(
+	release map[string]any,
+	serial, codename, baseDir, latestTag string,
+	forceDownload, skipLogical bool,
+) (destDir, bootDir string, bootTarget models.BootTarget, err error) {
+	return downloadFlashArchivesCtx(context.Background(), release, serial, codename, baseDir, latestTag, forceDownload, skipLogical)
 }
 
 // patchBootIfNeeded runs the boot patch function if provided, returning the
@@ -130,10 +143,12 @@ func patchBootIfNeeded(serial, bootDir string, bootTarget models.BootTarget, pat
 	return
 }
 
-// flashAllPartitions flashes all partitions from the extracted archives.
+// flashAllPartitionsCtx flashes all partitions from the extracted archives.
 // The device must already be in ADB mode before calling (it will reboot to
-// bootloader internally). Returns an error on any flash failure.
-func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootTarget, bootImgToFlash string, skipLogical bool) error {
+// bootloader internally). ctx is checked before each fastboot flash call so
+// that a cancellation cannot leave a partition half-flashed. Returns an error
+// on any flash failure or context cancellation.
+func flashAllPartitionsCtx(ctx context.Context, serial, destDir, bootDir string, bootTarget models.BootTarget, bootImgToFlash string, skipLogical bool) error {
 	// 17. Reboot to bootloader.
 	if err := adb.RebootToBootloader(serial); err != nil {
 		return err
@@ -144,14 +159,21 @@ func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootT
 	firmwareExtractDir := destDir
 	for _, part := range ScanAvailableImages(firmwareExtractDir, firmwarePartitions) {
 		fmt.Printf("    %s...", part)
-		if err := adb.FastbootFlashAB(serial, part, ImgPath(firmwareExtractDir, part)); err != nil {
-			if strings.Contains(err.Error(), "partition does not exist") {
-				fmt.Println(" skipped (not exposed by bootloader)")
-				continue
+		// Flash both A/B slots with ctx.Err() guard before each slot.
+		for _, slot := range []string{"_a", "_b"} {
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
-			return err
+			if err := adb.FastbootFlashCtx(ctx, serial, part+slot, ImgPath(firmwareExtractDir, part)); err != nil {
+				if strings.Contains(err.Error(), "partition does not exist") {
+					fmt.Println(" skipped (not exposed by bootloader)")
+					goto nextFirmware
+				}
+				return err
+			}
 		}
 		fmt.Println(" OK")
+	nextFirmware:
 	}
 
 	// 19. Flash boot partitions (excluding the main boot target handled separately).
@@ -162,8 +184,13 @@ func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootT
 			continue
 		}
 		fmt.Printf("    %s...", part)
-		if err := adb.FastbootFlashAB(serial, part, ImgPath(bootDir, part)); err != nil {
-			return err
+		for _, slot := range []string{"_a", "_b"} {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err := adb.FastbootFlashCtx(ctx, serial, part+slot, ImgPath(bootDir, part)); err != nil {
+				return err
+			}
 		}
 		fmt.Println(" OK")
 	}
@@ -174,8 +201,13 @@ func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootT
 	} else {
 		fmt.Printf("\n  Flashing patched %s (root preserved)...\n", bootTarget.Filename)
 	}
-	if err := adb.FastbootFlashAB(serial, bootTarget.PartitionBase, bootImgToFlash); err != nil {
-		return err
+	for _, slot := range []string{"_a", "_b"} {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err := adb.FastbootFlashCtx(ctx, serial, bootTarget.PartitionBase+slot, bootImgToFlash); err != nil {
+			return err
+		}
 	}
 
 	// 21. Flash logical partitions if not skipping.
@@ -187,7 +219,10 @@ func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootT
 		fmt.Println("\n  Flashing logical partitions (fastbootd)...")
 		for _, part := range ScanAvailableImages(logicalExtractDir, logicalPartitions) {
 			fmt.Printf("    %s...", part)
-			if err := adb.FastbootFlash(serial, part, ImgPath(logicalExtractDir, part)); err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err := adb.FastbootFlashCtx(ctx, serial, part, ImgPath(logicalExtractDir, part)); err != nil {
 				return err
 			}
 			fmt.Println(" OK")
@@ -199,8 +234,55 @@ func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootT
 
 	// 22. Reboot to system.
 	fmt.Println("\nRebooting to system...")
-	if err := adb.FastbootReboot(serial); err != nil {
+	if err := adb.FastbootRebootCtx(ctx, serial); err != nil {
 		fmt.Printf("  WARNING: reboot failed: %v\n", err)
+	}
+	return nil
+}
+
+// flashAllPartitions is a convenience shim around flashAllPartitionsCtx that
+// uses context.Background().
+func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootTarget, bootImgToFlash string, skipLogical bool) error {
+	return flashAllPartitionsCtx(context.Background(), serial, destDir, bootDir, bootTarget, bootImgToFlash, skipLogical)
+}
+
+// ActionFullFlashCtx is like ActionFullFlash but respects ctx for cancellation
+// of downloads and flash operations. Use signal.NotifyContext to wire Ctrl+C.
+func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, forceDownload, skipLogical bool, patchBoot BootPatchFunc) error {
+	// 1–2. Get model, current firmware, and resolved codename from device.
+	model, currentVersion, codename := readDeviceProps(serial, codename)
+
+	// 4. Print banner.
+	fmt.Printf("\n  Full Flash — %s (%s)\n\n", model, codename)
+
+	// 5–6. Fetch latest release from nothing_archive.
+	latest, latestTag, err := FetchLatestReleaseCtx(ctx, codename)
+	if err != nil {
+		return err
+	}
+
+	if !printFlashBanner(model, currentVersion, latestTag, patchBoot, skipLogical) {
+		return fmt.Errorf("cancelled by user")
+	}
+
+	destDir, bootDir, bootTarget, err := downloadFlashArchivesCtx(ctx, latest, serial, codename, baseDir, latestTag, forceDownload, skipLogical)
+	if err != nil {
+		return err
+	}
+
+	bootImgToFlash, err := patchBootIfNeeded(serial, bootDir, bootTarget, patchBoot)
+	if err != nil {
+		return err
+	}
+
+	if err := flashAllPartitionsCtx(ctx, serial, destDir, bootDir, bootTarget, bootImgToFlash, skipLogical); err != nil {
+		return err
+	}
+
+	// 23. Print success summary.
+	fmt.Printf("\n[OK] Full flash complete. Device is now on %s.\n", latestTag)
+	if patchBoot != nil {
+		fmt.Println("     Root (Magisk) preserved on both slots.")
 	}
 	return nil
 }
@@ -216,40 +298,5 @@ func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootT
 // skipLogical:   skip the ~4 GB logical partition download/flash
 // patchBoot:     optional function to Magisk-patch the boot image; pass nil to flash stock
 func ActionFullFlash(serial, codename, baseDir string, forceDownload, skipLogical bool, patchBoot BootPatchFunc) error {
-	// 1–2. Get model, current firmware, and resolved codename from device.
-	model, currentVersion, codename := readDeviceProps(serial, codename)
-
-	// 4. Print banner.
-	fmt.Printf("\n  Full Flash — %s (%s)\n\n", model, codename)
-
-	// 5–6. Fetch latest release from nothing_archive.
-	latest, latestTag, err := FetchLatestRelease(codename)
-	if err != nil {
-		return err
-	}
-
-	if !printFlashBanner(model, currentVersion, latestTag, patchBoot, skipLogical) {
-		return fmt.Errorf("cancelled by user")
-	}
-
-	destDir, bootDir, bootTarget, err := downloadFlashArchives(latest, serial, codename, baseDir, latestTag, forceDownload, skipLogical)
-	if err != nil {
-		return err
-	}
-
-	bootImgToFlash, err := patchBootIfNeeded(serial, bootDir, bootTarget, patchBoot)
-	if err != nil {
-		return err
-	}
-
-	if err := flashAllPartitions(serial, destDir, bootDir, bootTarget, bootImgToFlash, skipLogical); err != nil {
-		return err
-	}
-
-	// 23. Print success summary.
-	fmt.Printf("\n[OK] Full flash complete. Device is now on %s.\n", latestTag)
-	if patchBoot != nil {
-		fmt.Println("     Root (Magisk) preserved on both slots.")
-	}
-	return nil
+	return ActionFullFlashCtx(context.Background(), serial, codename, baseDir, forceDownload, skipLogical, patchBoot)
 }

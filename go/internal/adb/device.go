@@ -3,6 +3,7 @@ package adb
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,25 +21,30 @@ import (
 // Subprocess helpers
 // ---------------------------------------------------------------------------
 
+// RunCtx executes an ADB command with the given context, allowing cancellation
+// and timeout. stdout, stderr, and exit code are returned.
+func RunCtx(ctx context.Context, args []string) (stdout, stderr string, exitCode int) {
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	var outBuf, errBuf strings.Builder
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return outBuf.String(), errBuf.String(), -1
+		}
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return outBuf.String(), errBuf.String(), exitErr.ExitCode()
+		}
+		return outBuf.String(), errBuf.String(), 1
+	}
+	return outBuf.String(), errBuf.String(), 0
+}
+
 // Run executes args as an external command and returns stdout, stderr, and exit
 // code. It never returns a non-nil error for non-zero exit codes; callers
 // inspect exitCode directly.
 func Run(args []string) (stdout, stderr string, exitCode int) {
-	cmd := exec.Command(args[0], args[1:]...)
-	var outBuf, errBuf strings.Builder
-	cmd.Stdout = &outBuf
-	cmd.Stderr = &errBuf
-	err := cmd.Run()
-	stdout = outBuf.String()
-	stderr = errBuf.String()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = 1
-		}
-	}
-	return
+	return RunCtx(context.Background(), args)
 }
 
 // AdbShell runs `adb -s <serial> shell <cmd>` and returns trimmed stdout.
@@ -104,10 +110,11 @@ func msysEnv() []string {
 	return env
 }
 
-// AdbPush runs `adb -s <serial> push <localPath> <remotePath>`.
+// AdbPushCtx runs `adb -s <serial> push <localPath> <remotePath>` with the
+// given context, allowing cancellation and timeout.
 // On Windows, MSYS_NO_PATHCONV=1 is set to prevent path mangling.
-func AdbPush(serial, localPath, remotePath string) error {
-	cmd := exec.Command("adb", "-s", serial, "push", localPath, remotePath)
+func AdbPushCtx(ctx context.Context, serial, localPath, remotePath string) error {
+	cmd := exec.CommandContext(ctx, "adb", "-s", serial, "push", localPath, remotePath)
 	cmd.Env = msysEnv()
 	var outBuf, errBuf strings.Builder
 	cmd.Stdout = &outBuf
@@ -118,10 +125,17 @@ func AdbPush(serial, localPath, remotePath string) error {
 	return nil
 }
 
-// AdbPull runs `adb -s <serial> pull <remotePath> <localPath>`.
+// AdbPush runs `adb -s <serial> push <localPath> <remotePath>`.
 // On Windows, MSYS_NO_PATHCONV=1 is set to prevent path mangling.
-func AdbPull(serial, remotePath, localPath string) error {
-	cmd := exec.Command("adb", "-s", serial, "pull", remotePath, localPath)
+func AdbPush(serial, localPath, remotePath string) error {
+	return AdbPushCtx(context.Background(), serial, localPath, remotePath)
+}
+
+// AdbPullCtx runs `adb -s <serial> pull <remotePath> <localPath>` with the
+// given context, allowing cancellation and timeout.
+// On Windows, MSYS_NO_PATHCONV=1 is set to prevent path mangling.
+func AdbPullCtx(ctx context.Context, serial, remotePath, localPath string) error {
+	cmd := exec.CommandContext(ctx, "adb", "-s", serial, "pull", remotePath, localPath)
 	cmd.Env = msysEnv()
 	var outBuf, errBuf strings.Builder
 	cmd.Stdout = &outBuf
@@ -130,6 +144,12 @@ func AdbPull(serial, remotePath, localPath string) error {
 		return nterrors.AdbError(fmt.Sprintf("adb pull '%s' failed: %s", remotePath, strings.TrimSpace(errBuf.String())))
 	}
 	return nil
+}
+
+// AdbPull runs `adb -s <serial> pull <remotePath> <localPath>`.
+// On Windows, MSYS_NO_PATHCONV=1 is set to prevent path mangling.
+func AdbPull(serial, remotePath, localPath string) error {
+	return AdbPullCtx(context.Background(), serial, remotePath, localPath)
 }
 
 // ---------------------------------------------------------------------------

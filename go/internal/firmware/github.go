@@ -3,6 +3,7 @@
 package firmware
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,12 +24,13 @@ const (
 
 var dateTagRe = regexp.MustCompile(`-(\d{6})-`)
 
-// GhGet performs an HTTP GET against the nothing_archive GitHub API and returns
-// the raw response body. It handles rate limiting by returning an error with
-// the rate-limit reset time when a 403/429 is received.
-func GhGet(url string) ([]byte, error) {
+// GhGetCtx performs an HTTP GET against the nothing_archive GitHub API and
+// returns the raw response body. It handles rate limiting by returning an error
+// with the rate-limit reset time when a 403/429 is received. The request is
+// bound to ctx so callers can cancel or time-out the call.
+func GhGetCtx(ctx context.Context, url string) ([]byte, error) {
 	client := &http.Client{Timeout: 20 * time.Second}
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, nterrors.FirmwareError("building request: " + err.Error())
 	}
@@ -59,11 +61,16 @@ func GhGet(url string) ([]byte, error) {
 	return body, nil
 }
 
-// FetchReleases fetches up to 50 GitHub releases for owner/repo and returns
-// them as a slice of raw JSON objects.
-func FetchReleases(owner, repo string) ([]map[string]any, error) {
+// GhGet is a convenience shim around GhGetCtx that uses context.Background().
+func GhGet(url string) ([]byte, error) {
+	return GhGetCtx(context.Background(), url)
+}
+
+// FetchReleasesCtx fetches up to 50 GitHub releases for owner/repo and returns
+// them as a slice of raw JSON objects. The request is bound to ctx.
+func FetchReleasesCtx(ctx context.Context, owner, repo string) ([]map[string]any, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases?per_page=50", owner, repo)
-	body, err := GhGet(url)
+	body, err := GhGetCtx(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +79,12 @@ func FetchReleases(owner, repo string) ([]map[string]any, error) {
 		return nil, nterrors.FirmwareError("parsing releases JSON: " + err.Error())
 	}
 	return releases, nil
+}
+
+// FetchReleases is a convenience shim around FetchReleasesCtx that uses
+// context.Background().
+func FetchReleases(owner, repo string) ([]map[string]any, error) {
+	return FetchReleasesCtx(context.Background(), owner, repo)
 }
 
 // LatestRelease returns the most recent release from a list, keyed by the
@@ -104,12 +117,12 @@ func latestFromList(releases []map[string]any) map[string]any {
 	return best
 }
 
-// FetchLatestRelease returns the latest non-prerelease GitHub release map and
-// its tag string for the given device codename. It queries nothing_archive,
+// FetchLatestReleaseCtx returns the latest non-prerelease GitHub release map
+// and its tag string for the given device codename. It queries nothing_archive,
 // filters releases whose tag starts with "<codename>_", and picks the newest
-// one by the 6-digit date key embedded in the tag.
-func FetchLatestRelease(codename string) (release map[string]any, latestTag string, err error) {
-	releases, err := FetchReleases(nothingArchiveOwner, nothingArchiveRepo)
+// one by the 6-digit date key embedded in the tag. The request is bound to ctx.
+func FetchLatestReleaseCtx(ctx context.Context, codename string) (release map[string]any, latestTag string, err error) {
+	releases, err := FetchReleasesCtx(ctx, nothingArchiveOwner, nothingArchiveRepo)
 	if err != nil {
 		return nil, "", fmt.Errorf("cannot reach GitHub API: %w", err)
 	}
@@ -129,6 +142,12 @@ func FetchLatestRelease(codename string) (release map[string]any, latestTag stri
 	latest := latestFromList(matched)
 	tag, _ := latest["tag_name"].(string)
 	return latest, tag, nil
+}
+
+// FetchLatestRelease is a convenience shim around FetchLatestReleaseCtx that
+// uses context.Background().
+func FetchLatestRelease(codename string) (release map[string]any, latestTag string, err error) {
+	return FetchLatestReleaseCtx(context.Background(), codename)
 }
 
 // FindAsset searches a release's asset list for the first asset whose name
@@ -156,15 +175,18 @@ func FindAsset(release map[string]any, pattern string) (name, url string, found 
 	return "", "", false
 }
 
-// DownloadFile downloads url to destPath, printing progress to stdout.
-// The destination directory is created automatically if it does not exist.
-func DownloadFile(url, destPath string) error {
+// DownloadFileCtx downloads url to destPath. The request is bound to ctx so
+// callers can cancel or time-out the download. If progressFn is non-nil it is
+// called after each chunk with the number of bytes downloaded so far and the
+// total content length (-1 when unknown). The destination directory is created
+// automatically if it does not exist.
+func DownloadFileCtx(ctx context.Context, url, destPath string, progressFn func(downloaded, total int64)) error {
 	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
 		return nterrors.FirmwareError("creating destination directory: " + err.Error())
 	}
 
 	client := &http.Client{Timeout: 10 * time.Minute}
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nterrors.FirmwareError("building download request: " + err.Error())
 	}
@@ -197,7 +219,9 @@ func DownloadFile(url, destPath string) error {
 				return nterrors.FirmwareError("writing file: " + writeErr.Error())
 			}
 			done += int64(n)
-			if total > 0 {
+			if progressFn != nil {
+				progressFn(done, total)
+			} else if total > 0 {
 				pct := done * 100 / total
 				fmt.Printf("\r  %d%%  %.1f / %.1f MB",
 					pct,
@@ -215,6 +239,16 @@ func DownloadFile(url, destPath string) error {
 			return nterrors.FirmwareError("reading download stream: " + readErr.Error())
 		}
 	}
-	fmt.Println()
+	if progressFn == nil {
+		fmt.Println()
+	}
 	return nil
+}
+
+// DownloadFile downloads url to destPath, printing progress to stdout.
+// It is a convenience shim around DownloadFileCtx that uses context.Background()
+// and the built-in stdout progress printer.
+// The destination directory is created automatically if it does not exist.
+func DownloadFile(url, destPath string) error {
+	return DownloadFileCtx(context.Background(), url, destPath, nil)
 }

@@ -2,6 +2,7 @@ package backup
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
@@ -61,10 +62,10 @@ var restoreRisky = map[string]bool{
 
 const backupTempDir = "/sdcard/Download/partition_backup"
 
-// ActionBackup dumps all backupPartitions from the device to a timestamped
+// ActionBackupCtx dumps all backupPartitions from the device to a timestamped
 // local directory under baseDir/Backups/partition-backup/. Requires ADB root.
-// If password is non-empty, all dumped images are encrypted with AES-256-GCM.
-func ActionBackup(serial, baseDir string) error {
+// ctx is honoured for cancellation between and during per-partition dd calls.
+func ActionBackupCtx(ctx context.Context, serial, baseDir string) error {
 	if !adb.CheckAdbRoot(serial) {
 		return nterrors.AdbError(
 			"root not available via ADB shell.\n" +
@@ -73,22 +74,39 @@ func ActionBackup(serial, baseDir string) error {
 	}
 
 	timestamp := time.Now().Format("20060102_150405")
-	return actionBackupWithLabel(serial, baseDir, timestamp, "")
+	return actionBackupWithLabelCtx(ctx, serial, baseDir, timestamp, "")
 }
 
-// ActionBackupWithLabel is like ActionBackup but accepts a custom label for
-// the backup directory name (e.g. "pre_flash_v2.6"). Used by flash operations.
-func ActionBackupWithLabel(serial, baseDir, label string) error {
+// ActionBackup dumps all backupPartitions from the device to a timestamped
+// local directory under baseDir/Backups/partition-backup/. Requires ADB root.
+// If password is non-empty, all dumped images are encrypted with AES-256-GCM.
+func ActionBackup(serial, baseDir string) error {
+	return ActionBackupCtx(context.Background(), serial, baseDir)
+}
+
+// ActionBackupWithLabelCtx is like ActionBackupCtx but accepts a custom label
+// for the backup directory name (e.g. "pre_flash_v2.6"). Used by flash operations.
+func ActionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label string) error {
 	if !adb.CheckAdbRoot(serial) {
 		return nterrors.AdbError(
 			"root not available via ADB shell.\n" +
 				"Enable in Magisk: Settings -> Superuser access -> Apps and ADB.",
 		)
 	}
-	return actionBackupWithLabel(serial, baseDir, label, "")
+	return actionBackupWithLabelCtx(ctx, serial, baseDir, label, "")
+}
+
+// ActionBackupWithLabel is like ActionBackup but accepts a custom label for
+// the backup directory name (e.g. "pre_flash_v2.6"). Used by flash operations.
+func ActionBackupWithLabel(serial, baseDir, label string) error {
+	return ActionBackupWithLabelCtx(context.Background(), serial, baseDir, label)
 }
 
 func actionBackupWithLabel(serial, baseDir, label, password string) error {
+	return actionBackupWithLabelCtx(context.Background(), serial, baseDir, label, password)
+}
+
+func actionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label, password string) error {
 	localDir := filepath.Join(baseDir, "Backups", "partition-backup", "backup_"+label)
 	if err := os.MkdirAll(localDir, 0o755); err != nil {
 		return nterrors.AdbError("creating backup directory: " + err.Error())
@@ -129,8 +147,11 @@ func actionBackupWithLabel(serial, baseDir, label, password string) error {
 
 	var failed []string
 	for _, part := range toDump {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		fmt.Printf("  Dumping %s...", part)
-		_, _, code := adb.Run([]string{
+		_, _, code := adb.RunCtx(ctx, []string{
 			"adb", "-s", serial, "shell",
 			"su -c 'dd if=/dev/block/by-name/" + part +
 				" of=" + backupTempDir + "/" + part + ".img bs=4096 2>/dev/null'",
@@ -149,12 +170,8 @@ func actionBackupWithLabel(serial, baseDir, label, password string) error {
 
 	successCount := len(toDump) - len(failed)
 	fmt.Printf("\nPulling %d images to PC...\n", successCount)
-	_, stderr, code := adb.Run([]string{
-		"adb", "-s", serial, "pull",
-		backupTempDir + "/.", localDir,
-	})
-	if code != 0 {
-		return nterrors.AdbError("adb pull failed: " + strings.TrimSpace(stderr))
+	if err := adb.AdbPullCtx(ctx, serial, backupTempDir+"/.", localDir); err != nil {
+		return nterrors.AdbError("adb pull failed: " + err.Error())
 	}
 
 	// Clean up temp dir on device.

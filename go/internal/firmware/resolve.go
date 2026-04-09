@@ -1,6 +1,7 @@
 package firmware
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,14 +18,15 @@ const (
 	sdcardDownload      = "/sdcard/Download"
 )
 
-// ResolveFirmware checks the nothing_archive for the latest firmware for the
+// ResolveFirmwareCtx checks the nothing_archive for the latest firmware for the
 // given codename, downloads and extracts it if needed, and returns a populated
-// FirmwareState with the path to the extracted directory.
+// FirmwareState with the path to the extracted directory. The request is bound
+// to ctx so callers can cancel or time-out the operation.
 //
 // baseDir is the root storage directory (e.g. ~/.nothingctl). Firmware is
 // cached under baseDir/<codename>/<tag>/. forceDownload re-downloads even when
 // a cached copy exists.
-func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*models.FirmwareState, error) {
+func ResolveFirmwareCtx(ctx context.Context, serial, codename, baseDir string, forceDownload bool) (*models.FirmwareState, error) {
 	// Read current build version from device.
 	currentVersion, stderr, exitCode := adb.Run([]string{
 		"adb", "-s", serial, "shell", "getprop ro.build.display.id",
@@ -45,7 +47,7 @@ func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*mod
 
 	fmt.Println("\nChecking nothing_archive...")
 
-	latest, latestTag, err := FetchLatestRelease(codename)
+	latest, latestTag, err := FetchLatestReleaseCtx(ctx, codename)
 	if err != nil {
 		return nil, nterrors.FirmwareError(err.Error())
 	}
@@ -101,7 +103,7 @@ func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*mod
 		fmt.Printf("\nDownloading %s (%d MB)...\n", assetName, sizeMB)
 
 		archivePath := filepath.Join(destDir, assetName)
-		if err := DownloadFile(assetURL, archivePath); err != nil {
+		if err := DownloadFileCtx(ctx, assetURL, archivePath, nil); err != nil {
 			return nil, err
 		}
 
@@ -138,6 +140,12 @@ func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*mod
 	}, nil
 }
 
+// ResolveFirmware is a convenience shim around ResolveFirmwareCtx that uses
+// context.Background().
+func ResolveFirmware(serial, codename, baseDir string, forceDownload bool) (*models.FirmwareState, error) {
+	return ResolveFirmwareCtx(context.Background(), serial, codename, baseDir, forceDownload)
+}
+
 // findAssetBySuffix searches a slice of GitHub asset objects (each a
 // map[string]any with "name" and "browser_download_url" keys) for the first
 // asset whose name ends with suffix. Returns the download URL, asset name, and
@@ -153,9 +161,10 @@ func findAssetBySuffix(assets []map[string]any, suffix string) (url, name string
 	return "", "", fmt.Errorf("no asset with suffix %q found in release", suffix)
 }
 
-// DownloadFirmwareArchive downloads and extracts the image-firmware.7z asset
+// DownloadFirmwareArchiveCtx downloads and extracts the image-firmware.7z asset
 // for the given release into destDir. Skips if modem.img already exists.
-func DownloadFirmwareArchive(assets []map[string]any, destDir string, force bool) error {
+// The request is bound to ctx so callers can cancel or time-out the operation.
+func DownloadFirmwareArchiveCtx(ctx context.Context, assets []map[string]any, destDir string, force bool) error {
 	// Check if already extracted
 	if !force {
 		if _, err := os.Stat(filepath.Join(destDir, "modem.img")); err == nil {
@@ -169,7 +178,7 @@ func DownloadFirmwareArchive(assets []map[string]any, destDir string, force bool
 		return err
 	}
 	archivePath := filepath.Join(destDir, name)
-	if err := DownloadFile(url, archivePath); err != nil {
+	if err := DownloadFileCtx(ctx, url, archivePath, nil); err != nil {
 		return err
 	}
 	fmt.Printf("Extracting %s...\n", name)
@@ -182,9 +191,16 @@ func DownloadFirmwareArchive(assets []map[string]any, destDir string, force bool
 	return nil
 }
 
-// DownloadLogicalArchive downloads all image-logical.7z.001/.002/... parts
+// DownloadFirmwareArchive is a convenience shim around DownloadFirmwareArchiveCtx
+// that uses context.Background().
+func DownloadFirmwareArchive(assets []map[string]any, destDir string, force bool) error {
+	return DownloadFirmwareArchiveCtx(context.Background(), assets, destDir, force)
+}
+
+// DownloadLogicalArchiveCtx downloads all image-logical.7z.001/.002/... parts
 // and extracts them into destDir. Skips if system.img already exists.
-func DownloadLogicalArchive(assets []map[string]any, destDir string, force bool) error {
+// The request is bound to ctx so callers can cancel or time-out the operation.
+func DownloadLogicalArchiveCtx(ctx context.Context, assets []map[string]any, destDir string, force bool) error {
 	// Check if already extracted
 	if !force {
 		if _, err := os.Stat(filepath.Join(destDir, "system.img")); err == nil {
@@ -212,7 +228,7 @@ func DownloadLogicalArchive(assets []map[string]any, destDir string, force bool)
 			fmt.Printf("  %s already downloaded.\n", p.name)
 			continue
 		}
-		if err := DownloadFile(p.url, archivePath); err != nil {
+		if err := DownloadFileCtx(ctx, p.url, archivePath, nil); err != nil {
 			return err
 		}
 	}
@@ -230,6 +246,12 @@ func DownloadLogicalArchive(assets []map[string]any, destDir string, force bool)
 		}
 	}
 	return nil
+}
+
+// DownloadLogicalArchive is a convenience shim around DownloadLogicalArchiveCtx
+// that uses context.Background().
+func DownloadLogicalArchive(assets []map[string]any, destDir string, force bool) error {
+	return DownloadLogicalArchiveCtx(context.Background(), assets, destDir, force)
 }
 
 // FindMagiskPatched finds the most-recently-created magisk_patched*.img on the
