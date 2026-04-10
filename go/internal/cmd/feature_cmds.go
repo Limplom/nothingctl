@@ -256,8 +256,7 @@ func init() {
 	glyphCmd.Flags().StringVar(&flagValue, "enable", "", "enable or disable glyph: true/false")
 	rootCmd.AddCommand(glyphCmd)
 
-	glyphPatternCmd.Flags().StringVar(&flagProfile, "pattern", "", "pattern: pulse, blink, wave (required)")
-	_ = glyphPatternCmd.MarkFlagRequired("pattern")
+	glyphPatternCmd.Flags().StringVar(&flagProfile, "pattern", "", "pattern to run: test, off (omit to list)")
 	rootCmd.AddCommand(glyphPatternCmd)
 
 	rootCmd.AddCommand(glyphNotifyCmd)

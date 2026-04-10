@@ -20,7 +20,7 @@ var glyphCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return glyph.ActionGlyph(serial, "", flagValue)
+		return glyph.ActionGlyph(serial, adb.Model(serial), flagValue)
 	},
 }
 
@@ -32,7 +32,7 @@ var glyphPatternCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return glyph.ActionGlyphPattern(serial, "", flagProfile)
+		return glyph.ActionGlyphPattern(serial, adb.Model(serial), flagProfile)
 	},
 }
 
@@ -44,7 +44,7 @@ var glyphNotifyCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return glyph.ActionGlyphNotify(serial, "")
+		return glyph.ActionGlyphNotify(serial, adb.Model(serial))
 	},
 }
 
@@ -56,7 +56,7 @@ var nothingSettingsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return nothingsettings.ActionNothingSettings(serial, "", flagKey, flagValue)
+		return nothingsettings.ActionNothingSettings(serial, adb.Model(serial), flagKey, flagValue)
 	},
 }
 
@@ -68,6 +68,6 @@ var essentialSpaceCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return nothingsettings.ActionEssentialSpace(serial, "", &flagEnable)
+		return nothingsettings.ActionEssentialSpace(serial, adb.Model(serial), &flagEnable)
 	},
 }
