@@ -87,7 +87,8 @@ nothingctl ota-update
 | `root-status` | Detect active root manager (Magisk / KernelSU / APatch) | ADB |
 | `backup` | Dump 31 partitions via root dd → local storage + checksums | ADB root |
 | `restore` | Flash backed-up partitions back to device | Fastboot |
-| `verify-backup` | Compare live partition hashes against backup checksums | ADB root |
+| `verify-backup` | Compare local backup checksums for integrity | — |
+| `verify-backup --live` | Compare backup checksums against **live device** partition hashes | ADB root |
 | `install-magisk` | Download + install/update Magisk APK on device | ADB |
 | `update-magisk` | Update Magisk to latest version | ADB |
 | `flash-firmware` | Flash all boot partitions from nothing_archive + ARB check | Fastboot |
@@ -106,8 +107,10 @@ nothingctl ota-update
 | `modules --install <ids>` | Download + install modules (comma-sep IDs or `all`) | ADB root |
 | `modules-status` | List installed Magisk modules with enabled/disabled state | ADB root |
 | `modules-toggle --modules <ids>` | Enable or disable a Magisk module | ADB root |
+| `modules-update-all` | Check all installed modules for updates and install them (`--force` skips prompt) | ADB root |
 | `debloat` | List pre-installed NothingOS bloatware with status | ADB |
 | `debloat --remove <ids>` | Disable packages via `pm uninstall --user 0` (reversible) | ADB |
+| `debloat --profile <name>` | Disable all packages in a predefined tier: `minimal` / `recommended` / `aggressive` | ADB |
 | `sideload --apk <path>` | Install APK or split-APK directory | ADB |
 | `app-backup` | Backup APK + app data (`--packages` to filter) | ADB root |
 | `app-restore` | Restore from a previous `app-backup` | ADB root |
@@ -186,6 +189,12 @@ nothingctl ota-update
 | `dev-options` | Show or set Developer Options (`--set/--value`) | ADB |
 | `screen-always-on` | Control stay-awake while charging (`--enable true\|false`) | ADB |
 
+### Utility
+
+| Command | What it does | Requires |
+|---------|-------------|----------|
+| `self-update` | Check GitHub for a newer nothingctl release and replace the running binary (`--dry-run` to preview) | — |
+
 ### Nothing-specific
 
 | Command | What it does | Requires |
@@ -227,11 +236,13 @@ nothingctl memory --watch
 nothingctl cpu-usage --watch
 ```
 
-### Debloat Facebook services
+### Debloat
 
 ```bash
 nothingctl debloat                                               # list status
-nothingctl debloat --remove facebook-services,facebook-appmanager,facebook-system
+nothingctl debloat --profile minimal                             # remove Facebook/tracking packages
+nothingctl debloat --profile recommended                         # minimal + Nothing optional apps
+nothingctl debloat --remove facebook-services,facebook-appmanager # manual selection
 ```
 
 ### Network diagnostics
@@ -250,13 +261,29 @@ nothingctl -s <serial> info
 nothingctl -s <serial> backup
 ```
 
+### Run across all connected devices
+
+```bash
+nothingctl --serial all info
+nothingctl --serial all battery
+nothingctl --serial all root-status
+nothingctl --serial all check-update
+```
+
+### Update nothingctl itself
+
+```bash
+nothingctl self-update            # download and replace binary
+nothingctl self-update --dry-run  # preview only
+```
+
 ---
 
 ## Global flags
 
 | Flag | Description |
 |------|-------------|
-| `-s, --serial` | Target a specific device by ADB serial |
+| `-s, --serial` | Target a specific device by ADB serial — use `all` to run on every connected device |
 | `--base-dir` | Override default storage root (`~/tools/Nothing`) |
 | `--force-download` | Re-download firmware even if already cached |
 | `--no-backup` | Skip automatic backup before flashing |
