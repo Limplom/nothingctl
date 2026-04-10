@@ -10,6 +10,12 @@ import (
 	"github.com/Limplom/nothingctl/internal/adb"
 )
 
+// pulseSteps defines the brightness curve for one pulse cycle (0–4095 range).
+// 10 steps × ~200 ms ≈ 2 s per cycle (~0.5 Hz) — visibly smooth on USB ADB.
+var pulseSteps = []int{300, 800, 1500, 2200, 2800, 3000, 2800, 2200, 1500, 800}
+
+const pulseStepInterval = 150 * time.Millisecond
+
 const (
 	feedbackBrightness    = 2000 // out of 4095 max
 	sequentialOffInterval = 1 * time.Second
@@ -90,23 +96,26 @@ func (f *Feedback) Start() {
 	}
 	go func() {
 		defer close(f.finished)
-		// Light all zones at working brightness.
-		for _, z := range f.zones {
-			writeBr(f.serial, z.file, feedbackBrightness)
+		// Pulse loop: cycle through brightness steps until signalled.
+		i := 0
+	pulse:
+		for {
+			select {
+			case <-f.doneCh:
+				break pulse
+			case <-f.cancelCh:
+				f.writeAllBr(0)
+				return
+			default:
+				f.writeAllBr(pulseSteps[i%len(pulseSteps)])
+				i++
+				time.Sleep(pulseStepInterval)
+			}
 		}
-		// Wait for Done or Cancel.
-		select {
-		case <-f.doneCh:
-			// Sequential off: top-to-bottom, 1 s apart.
-			for _, z := range f.zones {
-				writeBr(f.serial, z.file, 0)
-				time.Sleep(sequentialOffInterval)
-			}
-		case <-f.cancelCh:
-			// All off immediately.
-			for _, z := range f.zones {
-				writeBr(f.serial, z.file, 0)
-			}
+		// Sequential off: top-to-bottom, 1 s apart.
+		for _, z := range f.zones {
+			writeBr(f.serial, z.file, 0)
+			time.Sleep(sequentialOffInterval)
 		}
 	}()
 }
@@ -147,6 +156,20 @@ func (f *Feedback) Cancel() {
 	}
 	f.cancelOnce.Do(func() { close(f.cancelCh) })
 	<-f.finished
+}
+
+// writeAllBr sets all zones to the same brightness in a single ADB call,
+// avoiding the per-zone round-trip cost during the pulse animation.
+func (f *Feedback) writeAllBr(brightness int) {
+	if len(f.zones) == 0 {
+		return
+	}
+	var sb strings.Builder
+	for _, z := range f.zones {
+		fmt.Fprintf(&sb, "echo %d > %s%s; ", brightness, aw210xxBase, z.file)
+	}
+	adb.Run([]string{"adb", "-s", f.serial, "shell",
+		fmt.Sprintf("su -c '%s'", sb.String())})
 }
 
 // writeBr writes a brightness value directly to an aw210xx sysfs file.
