@@ -29,6 +29,16 @@ Test commands that were directly changed. If no device is available, note it exp
 ## Before every `git push`
 
 - Run `go build ./...` from `go/` and confirm it compiles cleanly.
+- Build a local binary for the current platform and place it in `dist/`:
+  ```bash
+  # Windows (current platform)
+  go build -o ../dist/nothingctl-windows-amd64.exe ./cmd/nothingctl/
+  # Linux
+  go build -o ../dist/nothingctl-linux-amd64 ./cmd/nothingctl/
+  # macOS
+  go build -o ../dist/nothingctl-darwin-arm64 ./cmd/nothingctl/
+  ```
+  This gives the user a testable binary after every change, not just at release time.
 - Run the device tests above (or document why they were skipped).
 - Never push broken code. Fix compile errors and obvious regressions first.
 
