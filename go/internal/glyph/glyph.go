@@ -50,6 +50,30 @@ var zoneSettingMap = map[string][2]string{
 	"Pocket mode": {"global", "glyph_pocket_mode_state"},
 }
 
+const aw210xxBase = "/sys/class/leds/aw210xx_led/"
+
+// zoneSysfsMap maps zone name → sysfs brightness file (relative to aw210xxBase).
+// Phone 1 (Spacewar / A063) uses the AW210xx LED driver with these entries confirmed via live device test.
+var zoneSysfsMap = map[string]string{
+	"Camera":      "rear_cam_led_br",
+	"Diagonal":    "front_cam_led_br",
+	"Battery dot": "dot_led_br",
+	"Battery bar": "round_leds_br",
+	"USB":         "vline_leds_br",
+}
+
+// writeSysfsLED writes brightness to an aw210xx sysfs zone. Requires root.
+func writeSysfsLED(serial, zone string, brightness int) bool {
+	file, ok := zoneSysfsMap[zone]
+	if !ok {
+		return false
+	}
+	path := aw210xxBase + file
+	_, _, code := adb.Run([]string{"adb", "-s", serial, "shell",
+		fmt.Sprintf("su -c 'echo %d > %s'", brightness, path)})
+	return code == 0
+}
+
 
 func detectPkg(serial string) string {
 	for _, pkg := range []string{glyphPkgNew, glyphPkgLegacy} {
@@ -202,46 +226,47 @@ func runTestPattern(serial, model string) {
 
 	fmt.Printf("\n  Running test pattern on %s (%d zones)...\n", model, len(zones))
 	for _, zone := range zones {
-		if keyInfo, ok := zoneSettingMap[zone]; ok {
+		// Try sysfs (root, direct kernel LED driver) first.
+		if writeSysfsLED(serial, zone, 2000) {
+			fmt.Printf("    [ON]  %s\n", zone)
+			time.Sleep(800 * time.Millisecond)
+			writeSysfsLED(serial, zone, 0)
+			fmt.Printf("    [OFF] %s\n", zone)
+		} else if keyInfo, ok := zoneSettingMap[zone]; ok {
+			// Fall back to settings put for zones exposed as Android settings.
 			ns, key := keyInfo[0], keyInfo[1]
 			adb.Run([]string{"adb", "-s", serial, "shell",
 				fmt.Sprintf("settings put %s %s 1", ns, key)})
-			fmt.Printf("    [ON]  %s\n", zone)
-			time.Sleep(500 * time.Millisecond)
+			fmt.Printf("    [ON]  %s (via settings)\n", zone)
+			time.Sleep(800 * time.Millisecond)
 			adb.Run([]string{"adb", "-s", serial, "shell",
 				fmt.Sprintf("settings put %s %s 0", ns, key)})
 			fmt.Printf("    [OFF] %s\n", zone)
 		} else {
-			fmt.Printf("    %s: (direct control not available via ADB settings)\n", zone)
+			fmt.Printf("    %s: (no direct control available — needs Glyph SDK)\n", zone)
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 	}
 	fmt.Println("[OK] Test pattern complete.")
 }
 
 func runOffPattern(serial string) {
+	// Turn off sysfs-controlled zones (requires root).
+	for zone, file := range zoneSysfsMap {
+		path := aw210xxBase + file
+		_, _, code := adb.Run([]string{"adb", "-s", serial, "shell",
+			fmt.Sprintf("su -c 'echo 0 > %s'", path)})
+		if code == 0 {
+			fmt.Printf("  [OFF] %s\n", zone)
+		}
+	}
+	// Turn off settings-based zones.
 	for _, gs := range settingsNew {
 		adb.Run([]string{"adb", "-s", serial, "shell",
 			fmt.Sprintf("settings put %s %s 0", gs.ns, gs.key)})
 		fmt.Printf("  [OFF] %s\n", gs.label)
 	}
-	// Additional zone-mapped keys not in settingsNew
-	for zone, keyInfo := range zoneSettingMap {
-		alreadySet := false
-		for _, gs := range settingsNew {
-			if gs.key == keyInfo[1] {
-				alreadySet = true
-				break
-			}
-		}
-		if !alreadySet {
-			ns, key := keyInfo[0], keyInfo[1]
-			adb.Run([]string{"adb", "-s", serial, "shell",
-				fmt.Sprintf("settings put %s %s 0", ns, key)})
-			fmt.Printf("  [OFF] %s\n", zone)
-		}
-	}
-	fmt.Println("[OK] All known Glyph settings set to off.")
+	fmt.Println("[OK] All known Glyph zones set to off.")
 }
 
 // ActionGlyphPattern displays available patterns or triggers a named pattern.
