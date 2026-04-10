@@ -172,6 +172,11 @@ func AdbPull(serial, remotePath, localPath string) error {
 // Confirm prints prompt with "[y/N]: " and returns true only if the user
 // types exactly "y". EOF or interrupt counts as "no".
 func Confirm(prompt string) bool {
+	fi, err := os.Stdin.Stat()
+	if err != nil || (fi.Mode()&os.ModeCharDevice) == 0 {
+		fmt.Fprintf(os.Stderr, "no interactive terminal — use --force to skip confirmation\n")
+		return false
+	}
 	fmt.Printf("%s [y/N]: ", prompt)
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {

@@ -484,6 +484,10 @@ func PickBackup(baseDir, restoreDir string) (string, error) {
 			i, filepath.Base(b), imgCount, float64(totalBytes)/1024/1024)
 	}
 
+	fi, err := os.Stdin.Stat()
+	if err != nil || (fi.Mode()&os.ModeCharDevice) == 0 {
+		return "", fmt.Errorf("no interactive terminal — use --restore-dir to specify backup directory directly")
+	}
 	fmt.Print("\nSelect backup [0]: ")
 	scanner := bufio.NewScanner(os.Stdin)
 	idx := 0
