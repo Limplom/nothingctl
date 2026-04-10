@@ -15,6 +15,7 @@ import (
 	"github.com/Limplom/nothingctl/internal/arb"
 	"github.com/Limplom/nothingctl/internal/backup"
 	"github.com/Limplom/nothingctl/internal/firmware"
+	"github.com/Limplom/nothingctl/internal/glyph"
 	"github.com/Limplom/nothingctl/internal/history"
 	"github.com/Limplom/nothingctl/internal/magisk"
 )
@@ -110,7 +111,14 @@ var backupCmd = &cobra.Command{
 			return err
 		}
 		baseDir := filepath.Join(resolveBaseDir(), device.Codename)
-		return backup.ActionBackupCtx(ctx, serial, baseDir)
+		fb := glyph.NewFeedback(serial, device.Codename)
+		fb.StartWithContext(ctx)
+		defer fb.Cancel()
+		err = backup.ActionBackupCtx(ctx, serial, baseDir)
+		if err == nil {
+			fb.Done()
+		}
+		return err
 	},
 }
 
