@@ -150,12 +150,10 @@ func (f *Feedback) startHelper() {
 		for {
 			select {
 			case <-f.doneCh:
-				//nolint:errcheck
-				invokeHelper(f.serial, "off")
+				invokeHelper(f.serial, "off") // best-effort; ignore exit code on shutdown
 				return
 			case <-f.cancelCh:
-				//nolint:errcheck
-				invokeHelper(f.serial, "off")
+				invokeHelper(f.serial, "off") // best-effort; ignore exit code on shutdown
 				return
 			default:
 				// One pulse cycle: sine ramp up then down (~3 s).
