@@ -3,6 +3,7 @@ package glyph
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -98,9 +99,18 @@ func glyphServiceRunning(serial, pkg string) bool {
 
 func getZonesForModel(model string) (string, []string) {
 	modelLower := strings.ToLower(model)
-	for key, zones := range glyphZones {
+
+	// Sort keys longest-first so more-specific entries (e.g. "A001T") are
+	// checked before shorter prefixes that would otherwise shadow them ("A001").
+	keys := make([]string, 0, len(glyphZones))
+	for k := range glyphZones {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return len(keys[i]) > len(keys[j]) })
+
+	for _, key := range keys {
 		if strings.Contains(modelLower, strings.ToLower(key)) {
-			return key, zones
+			return key, glyphZones[key]
 		}
 	}
 	return "", nil
