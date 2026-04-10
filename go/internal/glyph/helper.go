@@ -68,6 +68,9 @@ func HelperInfo(serial string) (string, error) {
 
 // HelperOn turns all Glyph zones on at the given brightness (0–4095).
 func HelperOn(serial string, brightness int) error {
+	if brightness < 0 || brightness > 4095 {
+		return fmt.Errorf("brightness %d out of range 0–4095", brightness)
+	}
 	if err := deployHelper(serial); err != nil {
 		return err
 	}
@@ -91,8 +94,14 @@ func HelperOff(serial string) error {
 }
 
 // HelperPulse runs one sine-curve pulse cycle (up then down).
-// brightness: peak brightness 0–4095. steps: number of steps per half-cycle (default 10).
+// brightness: peak brightness 0–4095. steps: number of steps per half-cycle, 1–100.
 func HelperPulse(serial string, brightness, steps int) error {
+	if brightness < 0 || brightness > 4095 {
+		return fmt.Errorf("brightness %d out of range 0–4095", brightness)
+	}
+	if steps < 1 || steps > 100 {
+		return fmt.Errorf("steps %d out of range 1–100", steps)
+	}
 	if err := deployHelper(serial); err != nil {
 		return err
 	}

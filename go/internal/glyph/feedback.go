@@ -75,6 +75,7 @@ type Feedback struct {
 	doneCh     chan struct{}
 	cancelCh   chan struct{}
 	finished   chan struct{} // closed by goroutine when it exits
+	startOnce  sync.Once   // prevents double-launch panic on close(finished)
 	doneOnce   sync.Once
 	cancelOnce sync.Once
 }
@@ -97,17 +98,26 @@ func NewFeedback(serial, codename string) *Feedback {
 	}
 }
 
+// active reports whether this Feedback instance has any LED path available.
+func (f *Feedback) active() bool { return len(f.zones) > 0 || f.useHelper }
+
 // Start lights all known zones and launches the background goroutine.
 // Returns immediately — all ADB work happens in the goroutine.
 // Safe to call multiple times; only the first call has effect.
 func (f *Feedback) Start() {
-	if len(f.zones) == 0 && !f.useHelper {
+	if !f.active() {
 		return
 	}
-	if f.useHelper {
-		f.startHelper()
-		return
-	}
+	f.startOnce.Do(func() {
+		if f.useHelper {
+			f.startHelper()
+			return
+		}
+		f.startSysfs()
+	})
+}
+
+func (f *Feedback) startSysfs() {
 	go func() {
 		defer close(f.finished)
 		// Pulse loop: cycle through brightness steps until signalled.
@@ -157,7 +167,7 @@ func (f *Feedback) startHelper() {
 				return
 			default:
 				// One pulse cycle: sine ramp up then down (~3 s).
-				invokeHelper(f.serial, "pulse", "2000", "10")
+				invokeHelper(f.serial, "pulse", fmt.Sprintf("%d", feedbackBrightness), "10")
 			}
 		}
 	}()
@@ -167,7 +177,7 @@ func (f *Feedback) startHelper() {
 // before Done() is called, Cancel() is triggered automatically.
 func (f *Feedback) StartWithContext(ctx context.Context) {
 	f.Start()
-	if len(f.zones) == 0 && !f.useHelper {
+	if !f.active() {
 		return
 	}
 	go func() {
@@ -184,7 +194,7 @@ func (f *Feedback) StartWithContext(ctx context.Context) {
 // For sysfs-based devices, zones turn off one-by-one top-to-bottom.
 // For helper-based devices, zones turn off immediately via the helper.
 func (f *Feedback) Done() {
-	if len(f.zones) == 0 && !f.useHelper {
+	if !f.active() {
 		return
 	}
 	f.doneOnce.Do(func() { close(f.doneCh) })
@@ -194,7 +204,7 @@ func (f *Feedback) Done() {
 // Cancel signals error or cancellation, turns all zones off immediately,
 // and waits for the goroutine to exit. Safe to call even if Start was never called.
 func (f *Feedback) Cancel() {
-	if len(f.zones) == 0 && !f.useHelper {
+	if !f.active() {
 		return
 	}
 	f.cancelOnce.Do(func() { close(f.cancelCh) })
