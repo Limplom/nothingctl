@@ -85,7 +85,7 @@ nothingctl ota-update
 |---------|-------------|----------|
 | `check-update` | Check nothing_archive for a firmware update (no download) | ADB |
 | `root-status` | Detect active root manager (Magisk / KernelSU / APatch) | ADB |
-| `backup` | Dump 31 partitions via root dd → local storage + checksums | ADB root |
+| `backup` | Dump 31 partitions via root dd → local storage + checksums; Glyph LED feedback on supported devices | ADB root |
 | `restore` | Flash backed-up partitions back to device | Fastboot |
 | `verify-backup` | Compare local backup checksums for integrity | — |
 | `verify-backup --live` | Compare backup checksums against **live device** partition hashes | ADB root |
@@ -201,7 +201,8 @@ nothingctl ota-update
 |---------|-------------|----------|
 | `glyph` | Show Glyph package, service state, feature settings, zone map | ADB |
 | `glyph --enable on\|off` | Toggle Glyph interface | ADB |
-| `glyph-pattern --pattern <name>` | Run a Glyph light pattern (pulse/blink/wave) | ADB |
+| `glyph-pattern` | List available Glyph light patterns | ADB |
+| `glyph-pattern --pattern <name>` | Run a Glyph light pattern (`test` / `off`); requires root for sysfs LED control | ADB root |
 | `glyph-notify` | Show Glyph notification config and active Hearthstone services | ADB |
 | `nothing-settings` | Read/write Nothing-specific settings (`--set/--value`) | ADB |
 | `essential-space` | Toggle Essential Space — Phone (2+) only (`--enable true\|false`) | ADB |
