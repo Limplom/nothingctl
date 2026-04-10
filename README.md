@@ -2,7 +2,7 @@
 
 CLI tool for full control of Nothing phones — firmware management, Magisk root, partition backups, and deep device diagnostics via ADB.
 
-Available as a **compiled Go binary** (recommended) or as a Python script.
+Available as a **compiled Go binary**. The original Python prototype is archived as a [legacy release](https://github.com/Limplom/nothingctl/releases/tag/legacy-python) and no longer maintained.
 
 ## Supported devices
 
@@ -38,16 +38,6 @@ No installer, no runtime — just download and run.
 chmod +x nothingctl-linux-amd64
 ./nothingctl-linux-amd64 --help
 ```
-
-### Python (legacy)
-
-```bash
-git clone https://github.com/Limplom/nothingctl
-cd nothingctl
-python python/nothingctl.py
-```
-
-Requires Python 3.10+. No third-party packages — stdlib only.
 
 ---
 
@@ -342,6 +332,8 @@ GOOS=darwin GOARCH=arm64 go build -o nothingctl ./cmd/nothingctl/
 ```
 
 All commands must be run from the `go/` directory. The `debloat.json` and `modules.json` data files are embedded at compile time — the resulting binary has no runtime file dependencies.
+
+> The original Python prototype has been archived as a [legacy release](https://github.com/Limplom/nothingctl/releases/tag/legacy-python).
 
 ---
 
