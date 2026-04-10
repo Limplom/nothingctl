@@ -184,6 +184,10 @@ func Confirm(prompt string) bool {
 // Prompt prints text and reads a single line from stdin.
 // Returns the trimmed input or an error if stdin is closed.
 func Prompt(text string) (string, error) {
+	fi, err := os.Stdin.Stat()
+	if err != nil || (fi.Mode()&os.ModeCharDevice) == 0 {
+		return "", fmt.Errorf("no interactive terminal — use --packages to specify packages directly")
+	}
 	fmt.Print(text)
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {
