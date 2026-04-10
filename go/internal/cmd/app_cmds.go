@@ -1,12 +1,18 @@
 package cmd
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/spf13/cobra"
 
 	"github.com/Limplom/nothingctl/internal/adb"
 	"github.com/Limplom/nothingctl/internal/appbackup"
 	"github.com/Limplom/nothingctl/internal/appmanager"
 	"github.com/Limplom/nothingctl/internal/debloat"
+	"github.com/Limplom/nothingctl/internal/glyph"
 	"github.com/Limplom/nothingctl/internal/modules"
 	"github.com/Limplom/nothingctl/internal/permissions"
 	"github.com/Limplom/nothingctl/internal/sideload"
@@ -68,11 +74,24 @@ var appBackupCmd = &cobra.Command{
 	Use:   "app-backup",
 	Short: "Backup APK and app data",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err
 		}
-		return appbackup.ActionAppBackup(serial, flagBaseDir, splitCSV(flagPackages))
+		device, err := adb.DetectDevice(serial)
+		if err != nil {
+			return err
+		}
+		fb := glyph.NewFeedback(serial, device.Codename)
+		fb.StartWithContext(ctx)
+		defer fb.Cancel()
+		err = appbackup.ActionAppBackup(serial, flagBaseDir, splitCSV(flagPackages))
+		if err == nil {
+			fb.Done()
+		}
+		return err
 	},
 }
 
@@ -80,11 +99,24 @@ var appRestoreCmd = &cobra.Command{
 	Use:   "app-restore",
 	Short: "Restore app backup",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
 			return err
 		}
-		return appbackup.ActionAppRestore(serial, flagBaseDir, splitCSV(flagPackages))
+		device, err := adb.DetectDevice(serial)
+		if err != nil {
+			return err
+		}
+		fb := glyph.NewFeedback(serial, device.Codename)
+		fb.StartWithContext(ctx)
+		defer fb.Cancel()
+		err = appbackup.ActionAppRestore(serial, flagBaseDir, splitCSV(flagPackages))
+		if err == nil {
+			fb.Done()
+		}
+		return err
 	},
 }
 

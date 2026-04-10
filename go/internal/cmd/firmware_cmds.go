@@ -190,7 +190,20 @@ var verifyBackupCmd = &cobra.Command{
 		}
 
 		if flagLive {
-			return backup.ActionVerifyBackupLive(serial, backupDir)
+			device, err := adb.DetectDevice(serial)
+			if err != nil {
+				return err
+			}
+			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			fb := glyph.NewFeedback(serial, device.Codename)
+			fb.StartWithContext(ctx)
+			defer fb.Cancel()
+			err = backup.ActionVerifyBackupLive(serial, backupDir)
+			if err == nil {
+				fb.Done()
+			}
+			return err
 		}
 		return backup.ActionVerifyBackup(backupDir)
 	},
