@@ -32,11 +32,12 @@ Test commands that were directly changed. If no device is available, note it exp
 - Build a local binary for the current platform and place it in `dist/`:
   ```bash
   # Windows (current platform)
-  go build -o ../dist/nothingctl-windows-amd64.exe ./cmd/nothingctl/
+  COMMIT=$(git rev-parse --short HEAD)
+  go build -ldflags="-X main.Version=dev-${COMMIT}" -o ../dist/nothingctl-windows-amd64.exe ./cmd/nothingctl/
   # Linux
-  go build -o ../dist/nothingctl-linux-amd64 ./cmd/nothingctl/
+  go build -ldflags="-X main.Version=dev-${COMMIT}" -o ../dist/nothingctl-linux-amd64 ./cmd/nothingctl/
   # macOS
-  go build -o ../dist/nothingctl-darwin-arm64 ./cmd/nothingctl/
+  go build -ldflags="-X main.Version=dev-${COMMIT}" -o ../dist/nothingctl-darwin-arm64 ./cmd/nothingctl/
   ```
   This gives the user a testable binary after every change, not just at release time.
 - Run the device tests above (or document why they were skipped).
