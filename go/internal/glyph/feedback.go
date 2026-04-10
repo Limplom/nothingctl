@@ -52,7 +52,12 @@ var orderedFeedbackZones = map[string][]feedbackZone{
 
 // Feedback provides non-blocking Glyph LED visual feedback during a long-running
 // operation. All methods are safe to call concurrently and are no-ops on
-// devices with no confirmed sysfs zone map or when root is unavailable.
+// devices with no confirmed sysfs zone map and no helper support, or when root
+// is unavailable.
+//
+// For Phone 1 (spacewar/a063), brightness is written directly to the aw210xx
+// sysfs driver. For Phone 2 and newer, the glyph-helper DEX is deployed and
+// invoked via app_process (requires the embedded DEX to be present).
 //
 // Typical usage:
 //
@@ -66,6 +71,7 @@ var orderedFeedbackZones = map[string][]feedbackZone{
 type Feedback struct {
 	serial     string
 	zones      []feedbackZone
+	useHelper  bool // true when sysfs zones are absent and helper DEX is embedded
 	doneCh     chan struct{}
 	cancelCh   chan struct{}
 	finished   chan struct{} // closed by goroutine when it exits
@@ -75,15 +81,19 @@ type Feedback struct {
 
 // NewFeedback constructs a Feedback for the given device.
 // codename is ro.product.device (e.g. "spacewar", "pong").
-// If the device has no confirmed zone map the returned Feedback is a silent no-op.
+// Devices with direct sysfs zone maps use them; all others fall back to the
+// glyph-helper DEX if it is embedded (non-empty placeholder).
 func NewFeedback(serial, codename string) *Feedback {
 	zones := orderedFeedbackZones[strings.ToLower(codename)]
+	// Fall back to helper for devices that have Glyph zones but no direct sysfs access.
+	useHelper := len(zones) == 0 && len(glyphHelperDex) > 0
 	return &Feedback{
-		serial:   serial,
-		zones:    zones,
-		doneCh:   make(chan struct{}),
-		cancelCh: make(chan struct{}),
-		finished: make(chan struct{}),
+		serial:    serial,
+		zones:     zones,
+		useHelper: useHelper,
+		doneCh:    make(chan struct{}),
+		cancelCh:  make(chan struct{}),
+		finished:  make(chan struct{}),
 	}
 }
 
@@ -91,7 +101,11 @@ func NewFeedback(serial, codename string) *Feedback {
 // Returns immediately — all ADB work happens in the goroutine.
 // Safe to call multiple times; only the first call has effect.
 func (f *Feedback) Start() {
-	if len(f.zones) == 0 {
+	if len(f.zones) == 0 && !f.useHelper {
+		return
+	}
+	if f.useHelper {
+		f.startHelper()
 		return
 	}
 	go func() {
@@ -120,11 +134,42 @@ func (f *Feedback) Start() {
 	}()
 }
 
+// startHelper deploys the embedded DEX and runs pulse cycles via the glyph-helper
+// until Done() or Cancel() is called. Each invokeHelper("pulse") call blocks for
+// approximately steps * 2 * 150 ms (≈ 3 s for default 10 steps), so cancellation
+// has up to one pulse cycle of lag.
+func (f *Feedback) startHelper() {
+	go func() {
+		defer close(f.finished)
+
+		if err := deployHelper(f.serial); err != nil {
+			// Silent no-op: helper unavailable (e.g. placeholder build or push failed).
+			return
+		}
+
+		for {
+			select {
+			case <-f.doneCh:
+				//nolint:errcheck
+				invokeHelper(f.serial, "off")
+				return
+			case <-f.cancelCh:
+				//nolint:errcheck
+				invokeHelper(f.serial, "off")
+				return
+			default:
+				// One pulse cycle: sine ramp up then down (~3 s).
+				invokeHelper(f.serial, "pulse", "2000", "10")
+			}
+		}
+	}()
+}
+
 // StartWithContext calls Start and watches ctx: if the context is cancelled
 // before Done() is called, Cancel() is triggered automatically.
 func (f *Feedback) StartWithContext(ctx context.Context) {
 	f.Start()
-	if len(f.zones) == 0 {
+	if len(f.zones) == 0 && !f.useHelper {
 		return
 	}
 	go func() {
@@ -137,11 +182,11 @@ func (f *Feedback) StartWithContext(ctx context.Context) {
 	}()
 }
 
-// Done signals successful completion and blocks until the sequential-off
-// animation finishes. Zones turn off one-by-one, top-to-bottom, with
-// sequentialOffInterval between each.
+// Done signals successful completion and blocks until the goroutine exits.
+// For sysfs-based devices, zones turn off one-by-one top-to-bottom.
+// For helper-based devices, zones turn off immediately via the helper.
 func (f *Feedback) Done() {
-	if len(f.zones) == 0 {
+	if len(f.zones) == 0 && !f.useHelper {
 		return
 	}
 	f.doneOnce.Do(func() { close(f.doneCh) })
@@ -151,7 +196,7 @@ func (f *Feedback) Done() {
 // Cancel signals error or cancellation, turns all zones off immediately,
 // and waits for the goroutine to exit. Safe to call even if Start was never called.
 func (f *Feedback) Cancel() {
-	if len(f.zones) == 0 {
+	if len(f.zones) == 0 && !f.useHelper {
 		return
 	}
 	f.cancelOnce.Do(func() { close(f.cancelCh) })
