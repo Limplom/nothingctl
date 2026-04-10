@@ -96,8 +96,9 @@ func resolveBaseDir() string {
 // ---------------------------------------------------------------------------
 
 var backupCmd = &cobra.Command{
-	Use:   "backup",
-	Short: "Dump all critical partitions from device to local storage (requires root)",
+	Use:     "backup",
+	GroupID: "backup",
+	Short:   "Dump all critical partitions from device to local storage (requires root)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -127,8 +128,9 @@ var backupCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var restoreCmd = &cobra.Command{
-	Use:   "restore",
-	Short: "Flash partitions from a backup back to device",
+	Use:     "restore",
+	GroupID: "backup",
+	Short:   "Flash partitions from a backup back to device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -167,8 +169,9 @@ var restoreCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var verifyBackupCmd = &cobra.Command{
-	Use:   "verify-backup",
-	Short: "Re-hash backup images and compare against stored checksums",
+	Use:     "verify-backup",
+	GroupID: "backup",
+	Short:   "Re-hash backup images and compare against stored checksums",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Always resolve serial — both live and offline paths may need it.
 		serial, err := adb.EnsureDevice(flagSerial)
@@ -214,8 +217,9 @@ var verifyBackupCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var flashFirmwareCmd = &cobra.Command{
-	Use:   "flash-firmware",
-	Short: "Download latest firmware and flash boot partitions to both A/B slots",
+	Use:     "flash-firmware",
+	GroupID: "firmware",
+	Short:   "Download latest firmware and flash boot partitions to both A/B slots",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -305,8 +309,9 @@ var flashFirmwareCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var otaUpdateCmd = &cobra.Command{
-	Use:   "ota-update",
-	Short: "One-shot: download latest firmware and flash patched boot image (preserves root)",
+	Use:     "ota-update",
+	GroupID: "firmware",
+	Short:   "One-shot: download latest firmware and flash patched boot image (preserves root)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -448,8 +453,9 @@ func magiskCLIPatch(serial, localImg, extractedDir, imgName string) (string, err
 // ---------------------------------------------------------------------------
 
 var installMagiskCmd = &cobra.Command{
-	Use:   "install-magisk",
-	Short: "Download and install (or update) the Magisk app on device",
+	Use:     "install-magisk",
+	GroupID: "magisk",
+	Short:   "Download and install (or update) the Magisk app on device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -464,8 +470,9 @@ var installMagiskCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var updateMagiskCmd = &cobra.Command{
-	Use:   "update-magisk",
-	Short: "Update Magisk to the latest version (alias for install-magisk)",
+	Use:     "update-magisk",
+	GroupID: "magisk",
+	Short:   "Update Magisk to the latest version (alias for install-magisk)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -480,8 +487,9 @@ var updateMagiskCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var unrootCmd = &cobra.Command{
-	Use:   "unroot",
-	Short: "Flash stock boot image to both slots (removes root, enables OTA)",
+	Use:     "unroot",
+	GroupID: "firmware",
+	Short:   "Flash stock boot image to both slots (removes root, enables OTA)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -504,8 +512,9 @@ var unrootCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var pushForPatchCmd = &cobra.Command{
-	Use:   "push-for-patch",
-	Short: "Push stock boot/init_boot image to device for manual Magisk patching",
+	Use:     "push-for-patch",
+	GroupID: "firmware",
+	Short:   "Push stock boot/init_boot image to device for manual Magisk patching",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -528,8 +537,9 @@ var pushForPatchCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var flashPatchedCmd = &cobra.Command{
-	Use:   "flash-patched",
-	Short: "Pull magisk_patched image from device and flash to both A/B slots",
+	Use:     "flash-patched",
+	GroupID: "firmware",
+	Short:   "Pull magisk_patched image from device and flash to both A/B slots",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -571,8 +581,9 @@ var flashPatchedCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var fixBiometricCmd = &cobra.Command{
-	Use:   "fix-biometric",
-	Short: "Force strong auth (PIN/password) for current lock session",
+	Use:     "fix-biometric",
+	GroupID: "magisk",
+	Short:   "Force strong auth (PIN/password) for current lock session",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -587,8 +598,9 @@ var fixBiometricCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var historyCmd = &cobra.Command{
-	Use:   "history",
-	Short: "Display the flash operation history log",
+	Use:     "history",
+	GroupID: "firmware",
+	Short:   "Display the flash operation history log",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return history.ActionHistory(resolveBaseDir())
 	},
@@ -599,8 +611,9 @@ var historyCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var rootStatusCmd = &cobra.Command{
-	Use:   "root-status",
-	Short: "Detect and display active root manager (Magisk / KernelSU / APatch)",
+	Use:     "root-status",
+	GroupID: "firmware",
+	Short:   "Detect and display active root manager (Magisk / KernelSU / APatch)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if flagSerial == "all" {
 			return runOnAllDevices(func(s string) error {
@@ -622,8 +635,9 @@ var rootStatusCmd = &cobra.Command{
 // ---------------------------------------------------------------------------
 
 var checkUpdateCmd = &cobra.Command{
-	Use:   "check-update",
-	Short: "Check nothing_archive for a firmware update (no download)",
+	Use:     "check-update",
+	GroupID: "firmware",
+	Short:   "Check nothing_archive for a firmware update (no download)",
 	Long: `Reads the current firmware version from the connected device, queries the
 spike0en/nothing_archive GitHub releases for the latest build matching the
 device codename, and reports whether an update is available.
@@ -656,8 +670,9 @@ No files are downloaded — use ota-update to download and flash.`,
 // ---------------------------------------------------------------------------
 
 var fullFlashCmd = &cobra.Command{
-	Use:   "full-flash",
-	Short: "Download and flash all partitions (firmware + boot + logical ~4 GB)",
+	Use:     "full-flash",
+	GroupID: "firmware",
+	Short:   "Download and flash all partitions (firmware + boot + logical ~4 GB)",
 	Long: `Full firmware flash: downloads image-boot, image-firmware, and image-logical
 archives from nothing_archive and flashes all partitions.
 

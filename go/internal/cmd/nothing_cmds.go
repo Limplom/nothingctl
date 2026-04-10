@@ -13,8 +13,9 @@ import (
 // ---------------------------------------------------------------------------
 
 var glyphCmd = &cobra.Command{
-	Use:   "glyph",
-	Short: "Show Glyph interface status",
+	Use:     "glyph",
+	GroupID: "nothing",
+	Short:   "Show Glyph interface status",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -25,8 +26,9 @@ var glyphCmd = &cobra.Command{
 }
 
 var glyphPatternCmd = &cobra.Command{
-	Use:   "glyph-pattern",
-	Short: "Run a Glyph light pattern",
+	Use:     "glyph-pattern",
+	GroupID: "nothing",
+	Short:   "Run a Glyph light pattern",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -37,8 +39,9 @@ var glyphPatternCmd = &cobra.Command{
 }
 
 var glyphNotifyCmd = &cobra.Command{
-	Use:   "glyph-notify",
-	Short: "Show Glyph notification settings",
+	Use:     "glyph-notify",
+	GroupID: "nothing",
+	Short:   "Show Glyph notification settings",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -49,8 +52,9 @@ var glyphNotifyCmd = &cobra.Command{
 }
 
 var nothingSettingsCmd = &cobra.Command{
-	Use:   "nothing-settings",
-	Short: "Show or change Nothing-specific settings",
+	Use:     "nothing-settings",
+	GroupID: "nothing",
+	Short:   "Show or change Nothing-specific settings",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -61,8 +65,9 @@ var nothingSettingsCmd = &cobra.Command{
 }
 
 var essentialSpaceCmd = &cobra.Command{
-	Use:   "essential-space",
-	Short: "Enable or disable Essential Space",
+	Use:     "essential-space",
+	GroupID: "nothing",
+	Short:   "Enable or disable Essential Space",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {

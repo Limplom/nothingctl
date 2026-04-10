@@ -15,8 +15,9 @@ import (
 // ---------------------------------------------------------------------------
 
 var inputCmd = &cobra.Command{
-	Use:   "input",
-	Short: "Send touch, swipe, text or key input",
+	Use:     "input",
+	GroupID: "control",
+	Short:   "Send touch, swipe, text or key input",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -27,8 +28,9 @@ var inputCmd = &cobra.Command{
 }
 
 var devOptionsCmd = &cobra.Command{
-	Use:   "dev-options",
-	Short: "Show or change Developer Options",
+	Use:     "dev-options",
+	GroupID: "control",
+	Short:   "Show or change Developer Options",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -39,8 +41,9 @@ var devOptionsCmd = &cobra.Command{
 }
 
 var screenAlwaysOnCmd = &cobra.Command{
-	Use:   "screen-always-on",
-	Short: "Keep screen on while charging",
+	Use:     "screen-always-on",
+	GroupID: "control",
+	Short:   "Keep screen on while charging",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -51,8 +54,9 @@ var screenAlwaysOnCmd = &cobra.Command{
 }
 
 var cacheClearCmd = &cobra.Command{
-	Use:   "cache-clear",
-	Short: "Clear app or system cache",
+	Use:     "cache-clear",
+	GroupID: "apps",
+	Short:   "Clear app or system cache",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -63,8 +67,9 @@ var cacheClearCmd = &cobra.Command{
 }
 
 var localeCmd = &cobra.Command{
-	Use:   "locale",
-	Short: "Set locale, timezone or time format",
+	Use:     "locale",
+	GroupID: "control",
+	Short:   "Set locale, timezone or time format",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -79,8 +84,9 @@ var localeCmd = &cobra.Command{
 }
 
 var notificationsCmd = &cobra.Command{
-	Use:   "notifications",
-	Short: "List active notifications",
+	Use:     "notifications",
+	GroupID: "control",
+	Short:   "List active notifications",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -91,8 +97,9 @@ var notificationsCmd = &cobra.Command{
 }
 
 var clipboardCmd = &cobra.Command{
-	Use:   "clipboard",
-	Short: "Read or write clipboard",
+	Use:     "clipboard",
+	GroupID: "control",
+	Short:   "Read or write clipboard",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {

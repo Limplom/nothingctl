@@ -12,8 +12,9 @@ import (
 // ---------------------------------------------------------------------------
 
 var networkInfoCmd = &cobra.Command{
-	Use:   "network-info",
-	Short: "Show WiFi, IP, and DNS info",
+	Use:     "network-info",
+	GroupID: "network",
+	Short:   "Show WiFi, IP, and DNS info",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -24,8 +25,9 @@ var networkInfoCmd = &cobra.Command{
 }
 
 var dnsSetCmd = &cobra.Command{
-	Use:   "dns-set",
-	Short: "Set Private DNS provider",
+	Use:     "dns-set",
+	GroupID: "network",
+	Short:   "Set Private DNS provider",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -36,8 +38,9 @@ var dnsSetCmd = &cobra.Command{
 }
 
 var portForwardCmd = &cobra.Command{
-	Use:   "port-forward",
-	Short: "Set up or clear ADB port forwarding",
+	Use:     "port-forward",
+	GroupID: "network",
+	Short:   "Set up or clear ADB port forwarding",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -48,8 +51,9 @@ var portForwardCmd = &cobra.Command{
 }
 
 var wifiScanCmd = &cobra.Command{
-	Use:   "wifi-scan",
-	Short: "Scan for nearby WiFi networks",
+	Use:     "wifi-scan",
+	GroupID: "network",
+	Short:   "Scan for nearby WiFi networks",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -60,8 +64,9 @@ var wifiScanCmd = &cobra.Command{
 }
 
 var wifiProfilesCmd = &cobra.Command{
-	Use:   "wifi-profiles",
-	Short: "List saved WiFi profiles",
+	Use:     "wifi-profiles",
+	GroupID: "network",
+	Short:   "List saved WiFi profiles",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -72,8 +77,9 @@ var wifiProfilesCmd = &cobra.Command{
 }
 
 var forgetWifiCmd = &cobra.Command{
-	Use:   "forget-wifi",
-	Short: "Forget a saved WiFi network",
+	Use:     "forget-wifi",
+	GroupID: "network",
+	Short:   "Forget a saved WiFi network",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -84,8 +90,9 @@ var forgetWifiCmd = &cobra.Command{
 }
 
 var wifiADBCmd = &cobra.Command{
-	Use:   "wifi-adb",
-	Short: "Switch ADB to wireless TCP/IP mode",
+	Use:     "wifi-adb",
+	GroupID: "network",
+	Short:   "Switch ADB to wireless TCP/IP mode",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -96,8 +103,9 @@ var wifiADBCmd = &cobra.Command{
 }
 
 var adbPairCmd = &cobra.Command{
-	Use:   "adb-pair",
-	Short: "Pair device for wireless ADB (Android 11+)",
+	Use:     "adb-pair",
+	GroupID: "network",
+	Short:   "Pair device for wireless ADB (Android 11+)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return network.ActionADBPair(flagPort)
 	},

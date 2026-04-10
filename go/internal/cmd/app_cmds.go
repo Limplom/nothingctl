@@ -23,8 +23,9 @@ import (
 // ---------------------------------------------------------------------------
 
 var packageListCmd = &cobra.Command{
-	Use:   "package-list",
-	Short: "List installed packages",
+	Use:     "package-list",
+	GroupID: "apps",
+	Short:   "List installed packages",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -35,8 +36,9 @@ var packageListCmd = &cobra.Command{
 }
 
 var appInfoCmd = &cobra.Command{
-	Use:   "app-info",
-	Short: "Show detailed app information",
+	Use:     "app-info",
+	GroupID: "apps",
+	Short:   "Show detailed app information",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -47,8 +49,9 @@ var appInfoCmd = &cobra.Command{
 }
 
 var killAppCmd = &cobra.Command{
-	Use:   "kill-app",
-	Short: "Force-stop an app",
+	Use:     "kill-app",
+	GroupID: "apps",
+	Short:   "Force-stop an app",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -59,8 +62,9 @@ var killAppCmd = &cobra.Command{
 }
 
 var launchAppCmd = &cobra.Command{
-	Use:   "launch-app",
-	Short: "Launch an app or deep link",
+	Use:     "launch-app",
+	GroupID: "apps",
+	Short:   "Launch an app or deep link",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -71,8 +75,9 @@ var launchAppCmd = &cobra.Command{
 }
 
 var appBackupCmd = &cobra.Command{
-	Use:   "app-backup",
-	Short: "Backup APK and app data",
+	Use:     "app-backup",
+	GroupID: "backup",
+	Short:   "Backup APK and app data",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -96,8 +101,9 @@ var appBackupCmd = &cobra.Command{
 }
 
 var appRestoreCmd = &cobra.Command{
-	Use:   "app-restore",
-	Short: "Restore app backup",
+	Use:     "app-restore",
+	GroupID: "backup",
+	Short:   "Restore app backup",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -121,8 +127,9 @@ var appRestoreCmd = &cobra.Command{
 }
 
 var sideloadCmd = &cobra.Command{
-	Use:   "sideload",
-	Short: "Install APK or split-APK",
+	Use:     "sideload",
+	GroupID: "apps",
+	Short:   "Install APK or split-APK",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -133,8 +140,9 @@ var sideloadCmd = &cobra.Command{
 }
 
 var permissionsCmd = &cobra.Command{
-	Use:   "permissions",
-	Short: "Audit dangerous app permissions",
+	Use:     "permissions",
+	GroupID: "apps",
+	Short:   "Audit dangerous app permissions",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -145,8 +153,9 @@ var permissionsCmd = &cobra.Command{
 }
 
 var debloatCmd = &cobra.Command{
-	Use:   "debloat",
-	Short: "Manage NothingOS bloatware",
+	Use:     "debloat",
+	GroupID: "apps",
+	Short:   "Manage NothingOS bloatware",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -163,8 +172,9 @@ var debloatCmd = &cobra.Command{
 }
 
 var modulesCmd = &cobra.Command{
-	Use:   "modules",
-	Short: "List and install recommended Magisk modules",
+	Use:     "modules",
+	GroupID: "magisk",
+	Short:   "List and install recommended Magisk modules",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -175,8 +185,9 @@ var modulesCmd = &cobra.Command{
 }
 
 var modulesStatusCmd = &cobra.Command{
-	Use:   "modules-status",
-	Short: "Show installed Magisk modules on device",
+	Use:     "modules-status",
+	GroupID: "magisk",
+	Short:   "Show installed Magisk modules on device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -187,8 +198,9 @@ var modulesStatusCmd = &cobra.Command{
 }
 
 var modulesToggleCmd = &cobra.Command{
-	Use:   "modules-toggle",
-	Short: "Enable or disable Magisk modules",
+	Use:     "modules-toggle",
+	GroupID: "magisk",
+	Short:   "Enable or disable Magisk modules",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -199,8 +211,9 @@ var modulesToggleCmd = &cobra.Command{
 }
 
 var modulesUpdateAllCmd = &cobra.Command{
-	Use:   "modules-update-all",
-	Short: "Update all installed Magisk modules to latest GitHub releases",
+	Use:     "modules-update-all",
+	GroupID: "magisk",
+	Short:   "Update all installed Magisk modules to latest GitHub releases",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {

@@ -14,8 +14,9 @@ import (
 // ---------------------------------------------------------------------------
 
 var displayCmd = &cobra.Command{
-	Use:   "display",
-	Short: "Show or change display settings",
+	Use:     "display",
+	GroupID: "display",
+	Short:   "Show or change display settings",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -26,8 +27,9 @@ var displayCmd = &cobra.Command{
 }
 
 var colorProfileCmd = &cobra.Command{
-	Use:   "color-profile",
-	Short: "Set display color profile",
+	Use:     "color-profile",
+	GroupID: "display",
+	Short:   "Set display color profile",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -38,8 +40,9 @@ var colorProfileCmd = &cobra.Command{
 }
 
 var audioCmd = &cobra.Command{
-	Use:   "audio",
-	Short: "Show or adjust audio volumes",
+	Use:     "audio",
+	GroupID: "display",
+	Short:   "Show or adjust audio volumes",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -50,8 +53,9 @@ var audioCmd = &cobra.Command{
 }
 
 var audioRouteCmd = &cobra.Command{
-	Use:   "audio-route",
-	Short: "Show active audio routing",
+	Use:     "audio-route",
+	GroupID: "display",
+	Short:   "Show active audio routing",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -62,8 +66,9 @@ var audioRouteCmd = &cobra.Command{
 }
 
 var screenshotCmd = &cobra.Command{
-	Use:   "screenshot",
-	Short: "Take a screenshot and pull to host",
+	Use:     "screenshot",
+	GroupID: "display",
+	Short:   "Take a screenshot and pull to host",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -74,8 +79,9 @@ var screenshotCmd = &cobra.Command{
 }
 
 var screenrecordCmd = &cobra.Command{
-	Use:   "screenrecord",
-	Short: "Record screen to video file",
+	Use:     "screenrecord",
+	GroupID: "display",
+	Short:   "Record screen to video file",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {

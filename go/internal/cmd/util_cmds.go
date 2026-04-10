@@ -16,8 +16,9 @@ import (
 // ---------------------------------------------------------------------------
 
 var rebootCmd = &cobra.Command{
-	Use:   "reboot",
-	Short: "Reboot to selected target",
+	Use:     "reboot",
+	GroupID: "device",
+	Short:   "Reboot to selected target",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -28,8 +29,9 @@ var rebootCmd = &cobra.Command{
 }
 
 var propGetCmd = &cobra.Command{
-	Use:   "prop-get",
-	Short: "Read system property or list all",
+	Use:     "prop-get",
+	GroupID: "control",
+	Short:   "Read system property or list all",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -40,8 +42,9 @@ var propGetCmd = &cobra.Command{
 }
 
 var propSetCmd = &cobra.Command{
-	Use:   "prop-set",
-	Short: "Write system property (requires root)",
+	Use:     "prop-set",
+	GroupID: "control",
+	Short:   "Write system property (requires root)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -52,8 +55,9 @@ var propSetCmd = &cobra.Command{
 }
 
 var performanceCmd = &cobra.Command{
-	Use:   "performance",
-	Short: "Show or set CPU governor profile",
+	Use:     "performance",
+	GroupID: "control",
+	Short:   "Show or set CPU governor profile",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -64,8 +68,9 @@ var performanceCmd = &cobra.Command{
 }
 
 var storageReportCmd = &cobra.Command{
-	Use:   "storage-report",
-	Short: "Show storage usage report",
+	Use:     "storage-report",
+	GroupID: "control",
+	Short:   "Show storage usage report",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -76,8 +81,9 @@ var storageReportCmd = &cobra.Command{
 }
 
 var apkExtractCmd = &cobra.Command{
-	Use:   "apk-extract",
-	Short: "Extract APK(s) from device",
+	Use:     "apk-extract",
+	GroupID: "apps",
+	Short:   "Extract APK(s) from device",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -88,8 +94,9 @@ var apkExtractCmd = &cobra.Command{
 }
 
 var selfUpdateCmd = &cobra.Command{
-	Use:   "self-update",
-	Short: "Check for a newer nothingctl release and replace the running binary",
+	Use:     "self-update",
+	GroupID: "util",
+	Short:   "Check for a newer nothingctl release and replace the running binary",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return selfupdate.ActionSelfUpdate(GetVersion(), flagDryRun)
 	},

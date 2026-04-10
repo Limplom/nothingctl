@@ -41,12 +41,27 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&flagForceDownload, "force-download", false, "re-download firmware even if already cached")
 	rootCmd.PersistentFlags().BoolVar(&flagNoBackup, "no-backup", false, "skip automatic backup before flashing")
 
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "firmware", Title: "Firmware & Root"},
+		&cobra.Group{ID: "backup", Title: "Backup & Restore"},
+		&cobra.Group{ID: "magisk", Title: "Magisk & Modules"},
+		&cobra.Group{ID: "apps", Title: "Apps & Debloat"},
+		&cobra.Group{ID: "device", Title: "Device Info & Battery"},
+		&cobra.Group{ID: "monitor", Title: "System Monitoring"},
+		&cobra.Group{ID: "display", Title: "Display & Audio"},
+		&cobra.Group{ID: "network", Title: "Network & Connectivity"},
+		&cobra.Group{ID: "control", Title: "Input & Control"},
+		&cobra.Group{ID: "nothing", Title: "Nothing-Specific"},
+		&cobra.Group{ID: "util", Title: "Utility"},
+	)
+
 	rootCmd.AddCommand(versionCmd)
 }
 
 var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print nothingctl version",
+	Use:     "version",
+	Short:   "Print nothingctl version",
+	GroupID: "util",
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Printf("nothingctl %s\n", version)
 	},

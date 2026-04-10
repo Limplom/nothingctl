@@ -17,8 +17,9 @@ import (
 // ---------------------------------------------------------------------------
 
 var infoCmd = &cobra.Command{
-	Use:   "info",
-	Short: "Show full device dashboard",
+	Use:     "info",
+	GroupID: "device",
+	Short:   "Show full device dashboard",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if flagSerial == "all" {
 			return runOnAllDevices(func(s string) error {
@@ -34,8 +35,9 @@ var infoCmd = &cobra.Command{
 }
 
 var batteryCmd = &cobra.Command{
-	Use:   "battery",
-	Short: "Show battery health report",
+	Use:     "battery",
+	GroupID: "device",
+	Short:   "Show battery health report",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if flagSerial == "all" {
 			return runOnAllDevices(func(s string) error {
@@ -51,8 +53,9 @@ var batteryCmd = &cobra.Command{
 }
 
 var batteryStatsCmd = &cobra.Command{
-	Use:   "battery-stats",
-	Short: "Show per-app wakelock drain since last charge",
+	Use:     "battery-stats",
+	GroupID: "device",
+	Short:   "Show per-app wakelock drain since last charge",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -63,8 +66,9 @@ var batteryStatsCmd = &cobra.Command{
 }
 
 var chargingControlCmd = &cobra.Command{
-	Use:   "charging-control",
-	Short: "Set charging limit",
+	Use:     "charging-control",
+	GroupID: "device",
+	Short:   "Set charging limit",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -75,8 +79,9 @@ var chargingControlCmd = &cobra.Command{
 }
 
 var thermalCmd = &cobra.Command{
-	Use:   "thermal",
-	Short: "Show thermal zone temperatures",
+	Use:     "thermal",
+	GroupID: "monitor",
+	Short:   "Show thermal zone temperatures",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -87,8 +92,9 @@ var thermalCmd = &cobra.Command{
 }
 
 var memoryCmd = &cobra.Command{
-	Use:   "memory",
-	Short: "Show RAM usage",
+	Use:     "memory",
+	GroupID: "monitor",
+	Short:   "Show RAM usage",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -99,8 +105,9 @@ var memoryCmd = &cobra.Command{
 }
 
 var cpuUsageCmd = &cobra.Command{
-	Use:   "cpu-usage",
-	Short: "Show CPU frequencies and top processes",
+	Use:     "cpu-usage",
+	GroupID: "monitor",
+	Short:   "Show CPU frequencies and top processes",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -111,8 +118,9 @@ var cpuUsageCmd = &cobra.Command{
 }
 
 var processTreeCmd = &cobra.Command{
-	Use:   "process-tree",
-	Short: "Show running process tree",
+	Use:     "process-tree",
+	GroupID: "monitor",
+	Short:   "Show running process tree",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -123,8 +131,9 @@ var processTreeCmd = &cobra.Command{
 }
 
 var dozeStatusCmd = &cobra.Command{
-	Use:   "doze-status",
-	Short: "Show Doze mode status and whitelist",
+	Use:     "doze-status",
+	GroupID: "monitor",
+	Short:   "Show Doze mode status and whitelist",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -135,8 +144,9 @@ var dozeStatusCmd = &cobra.Command{
 }
 
 var locationCmd = &cobra.Command{
-	Use:   "location",
-	Short: "Show or set location mode",
+	Use:     "location",
+	GroupID: "control",
+	Short:   "Show or set location mode",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -147,8 +157,9 @@ var locationCmd = &cobra.Command{
 }
 
 var logcatCmd = &cobra.Command{
-	Use:   "logcat",
-	Short: "Capture logcat to file",
+	Use:     "logcat",
+	GroupID: "monitor",
+	Short:   "Capture logcat to file",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -159,8 +170,9 @@ var logcatCmd = &cobra.Command{
 }
 
 var bugreportCmd = &cobra.Command{
-	Use:   "bugreport",
-	Short: "Capture full bugreport",
+	Use:     "bugreport",
+	GroupID: "monitor",
+	Short:   "Capture full bugreport",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
@@ -171,8 +183,9 @@ var bugreportCmd = &cobra.Command{
 }
 
 var anrDumpCmd = &cobra.Command{
-	Use:   "anr-dump",
-	Short: "Collect ANR traces and tombstones",
+	Use:     "anr-dump",
+	GroupID: "monitor",
+	Short:   "Collect ANR traces and tombstones",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serial, err := adb.EnsureDevice(flagSerial)
 		if err != nil {
