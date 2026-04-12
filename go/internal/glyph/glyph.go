@@ -51,25 +51,22 @@ var zoneSettingMap = map[string][2]string{
 	"Pocket mode": {"global", "glyph_pocket_mode_state"},
 }
 
-const aw210xxBase = "/sys/class/leds/aw210xx_led/"
-
-// zoneSysfsMap maps zone name → sysfs brightness file (relative to aw210xxBase).
-// Phone 1 (Spacewar / A063) uses the AW210xx LED driver with these entries confirmed via live device test.
+// zoneSysfsMap maps zone name → absolute sysfs brightness path.
+// Phone 1 (Spacewar / A063) uses the AW210xx LED driver; entries confirmed via live device test.
 var zoneSysfsMap = map[string]string{
-	"Camera":      "rear_cam_led_br",
-	"Diagonal":    "front_cam_led_br",
-	"Battery dot": "dot_led_br",
-	"Battery bar": "round_leds_br",
-	"USB":         "vline_leds_br",
+	"Camera":      aw210xxBase + "rear_cam_led_br",
+	"Diagonal":    aw210xxBase + "front_cam_led_br",
+	"Battery dot": aw210xxBase + "dot_led_br",
+	"Battery bar": aw210xxBase + "round_leds_br",
+	"USB":         aw210xxBase + "vline_leds_br",
 }
 
-// writeSysfsLED writes brightness to an aw210xx sysfs zone. Requires root.
+// writeSysfsLED writes brightness to a sysfs zone path. Requires root.
 func writeSysfsLED(serial, zone string, brightness int) bool {
-	file, ok := zoneSysfsMap[zone]
+	path, ok := zoneSysfsMap[zone]
 	if !ok {
 		return false
 	}
-	path := aw210xxBase + file
 	_, _, code := adb.Run([]string{"adb", "-s", serial, "shell",
 		fmt.Sprintf("su -c 'echo %d > %s'", brightness, path)})
 	return code == 0
@@ -262,8 +259,7 @@ func runTestPattern(serial, model string) {
 
 func runOffPattern(serial string) {
 	// Turn off sysfs-controlled zones (requires root).
-	for zone, file := range zoneSysfsMap {
-		path := aw210xxBase + file
+	for zone, path := range zoneSysfsMap {
 		_, _, code := adb.Run([]string{"adb", "-s", serial, "shell",
 			fmt.Sprintf("su -c 'echo 0 > %s'", path)})
 		if code == 0 {

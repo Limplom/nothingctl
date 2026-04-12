@@ -21,11 +21,16 @@ const (
 	sequentialOffInterval = 1 * time.Second
 )
 
-// feedbackZone pairs a zone name with its sysfs brightness file (relative to aw210xxBase).
+// feedbackZone pairs a zone name with its absolute sysfs brightness file path.
+// maxBr is the maximum value the driver accepts (0 means the aw210xx default of 4095).
+// Brightness values from pulseSteps (0–4095 range) are scaled to [0, maxBr] when maxBr > 0.
 type feedbackZone struct {
-	name string
-	file string
+	name  string
+	file  string // absolute sysfs path
+	maxBr int    // 0 = inherit aw210xx scale (4095), >0 = scale to this value
 }
+
+const aw210xxBase = "/sys/class/leds/aw210xx_led/"
 
 // orderedFeedbackZones maps lowercase device codename to the ordered zone list
 // for the sequential-off animation (top-to-bottom visual order).
@@ -33,20 +38,25 @@ type feedbackZone struct {
 var orderedFeedbackZones = map[string][]feedbackZone{
 	// Nothing Phone (1) — confirmed live on Spacewar / A063
 	"spacewar": {
-		{"Camera", "rear_cam_led_br"},
-		{"Diagonal", "front_cam_led_br"},
-		{"Battery dot", "dot_led_br"},
-		{"Battery bar", "round_leds_br"},
-		{"USB", "vline_leds_br"},
+		{"Camera",      aw210xxBase + "rear_cam_led_br",  0},
+		{"Diagonal",    aw210xxBase + "front_cam_led_br", 0},
+		{"Battery dot", aw210xxBase + "dot_led_br",       0},
+		{"Battery bar", aw210xxBase + "round_leds_br",    0},
+		{"USB",         aw210xxBase + "vline_leds_br",    0},
 	},
 	"a063": {
-		{"Camera", "rear_cam_led_br"},
-		{"Diagonal", "front_cam_led_br"},
-		{"Battery dot", "dot_led_br"},
-		{"Battery bar", "round_leds_br"},
-		{"USB", "vline_leds_br"},
+		{"Camera",      aw210xxBase + "rear_cam_led_br",  0},
+		{"Diagonal",    aw210xxBase + "front_cam_led_br", 0},
+		{"Battery dot", aw210xxBase + "dot_led_br",       0},
+		{"Battery bar", aw210xxBase + "round_leds_br",    0},
+		{"USB",         aw210xxBase + "vline_leds_br",    0},
 	},
-	// Phone (2), (2a), (3a), (3a Lite) — sysfs mappings not yet confirmed.
+	// Nothing Phone (3a Lite / galaxian) — confirmed on A001T hardware.
+	// Single noth_leds node controls all zones; max brightness is 255.
+	"galaxian": {
+		{"All zones", "/sys/class/leds/noth_leds/brightness", 255},
+	},
+	// Phone (2), (2a), (3a) — sysfs mappings not yet confirmed.
 	// Add entries here once tested on real hardware.
 }
 
@@ -211,6 +221,15 @@ func (f *Feedback) Cancel() {
 	<-f.finished
 }
 
+// scaleBr scales a brightness value from the 0–4095 range to [0, maxBr].
+// If maxBr is 0 the raw value is returned unchanged (aw210xx devices accept 0–4095).
+func scaleBr(br, maxBr int) int {
+	if maxBr <= 0 {
+		return br
+	}
+	return br * maxBr / 4095
+}
+
 // writeAllBr sets all zones to the same brightness in a single ADB call,
 // avoiding the per-zone round-trip cost during the pulse animation.
 func (f *Feedback) writeAllBr(brightness int) {
@@ -219,18 +238,18 @@ func (f *Feedback) writeAllBr(brightness int) {
 	}
 	var sb strings.Builder
 	for _, z := range f.zones {
-		fmt.Fprintf(&sb, "echo %d > %s%s; ", brightness, aw210xxBase, z.file)
+		fmt.Fprintf(&sb, "echo %d > %s; ", scaleBr(brightness, z.maxBr), z.file)
 	}
 	adb.Run([]string{"adb", "-s", f.serial, "shell",
 		fmt.Sprintf("su -c '%s'", sb.String())})
 }
 
-// writeBr writes a brightness value directly to an aw210xx sysfs file.
+// writeBr writes a brightness value to an absolute sysfs path.
 // Requires root on device. Errors are silently ignored.
 func writeBr(serial, file string, brightness int) {
 	if file == "" {
 		return
 	}
 	adb.Run([]string{"adb", "-s", serial, "shell",
-		fmt.Sprintf("su -c 'echo %d > %s%s'", brightness, aw210xxBase, file)})
+		fmt.Sprintf("su -c 'echo %d > %s'", brightness, file)})
 }
