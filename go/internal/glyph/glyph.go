@@ -1,14 +1,28 @@
 // Package glyph provides Nothing Glyph Interface control and diagnostics.
+//
+// High-level responsibilities:
+//
+//   - detect the Glyph app package (legacy ly.nothing.glyph.service or the
+//     newer com.nothing.hearthstone) and its toggle surface;
+//   - render the per-device zone map + capability summary (data from the
+//     glyph_devices.json catalogue in internal/data);
+//   - run patterns against the correct hardware backend via internal/glyph/
+//     adapter (sysfs_noth_leds, sysfs_aw210xx, binder_helper, …).
+//
+// The actual LED hardware calls live in the adapter subpackage; this file
+// wires the CLI surface to it.
 package glyph
 
 import (
+	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/Limplom/nothingctl/internal/adb"
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
+	"github.com/Limplom/nothingctl/internal/glyph/adapter"
+	"github.com/Limplom/nothingctl/internal/glyph/profile"
 )
 
 const (
@@ -28,50 +42,16 @@ var settingsNew = []glyphSetting{
 	{"global", "glyph_screen_upward_state", "Screen-upward mode"},
 }
 
-// glyphZones maps model/codename key to zone list
-var glyphZones = map[string][]string{
-	"Phone (1)":       {"Camera", "Diagonal", "Battery dot", "Battery bar", "USB"},
-	"spacewar":        {"Camera", "Diagonal", "Battery dot", "Battery bar", "USB"},
-	"A063":            {"Camera", "Diagonal", "Battery dot", "Battery bar", "USB"},
-	"Phone (2)":       {"Camera top", "Camera bottom", "Diagonal", "Battery left", "Battery right", "USB", "Notification"},
-	"pong":            {"Camera top", "Camera bottom", "Diagonal", "Battery left", "Battery right", "USB", "Notification"},
-	"Phone (2a)":      {"Camera", "Battery", "Bottom strip"},
-	"pacman":          {"Camera", "Battery", "Bottom strip"},
-	"Phone (3a) Lite": {"Camera", "Bottom strip"},
-	"Phone (3a)":      {"Camera top", "Camera bottom", "Battery", "Bottom strip"},
-	"galaxian":        {"Camera top", "Camera bottom", "Battery", "Bottom strip"},
-	"A001":            {"Camera top", "Camera bottom", "Battery", "Bottom strip"},
-	"A001T":           {"Camera", "Bottom strip"},
-	"CMF Phone 1":     {"Ring", "Dot"},
-}
-
-// Zone name → (namespace, settings_key) for zones controllable via settings
+// Zone-name → (namespace, settings_key) for zones controllable via settings.
+// Used by runTestPattern as a fallback when the adapter can't reach a zone.
 var zoneSettingMap = map[string][2]string{
 	"Long torch":  {"global", "glyph_long_torch_enable"},
 	"Pocket mode": {"global", "glyph_pocket_mode_state"},
 }
 
-// zoneSysfsMap maps zone name → absolute sysfs brightness path.
-// Phone 1 (Spacewar / A063) uses the AW210xx LED driver; entries confirmed via live device test.
-var zoneSysfsMap = map[string]string{
-	"Camera":      aw210xxBase + "rear_cam_led_br",
-	"Diagonal":    aw210xxBase + "front_cam_led_br",
-	"Battery dot": aw210xxBase + "dot_led_br",
-	"Battery bar": aw210xxBase + "round_leds_br",
-	"USB":         aw210xxBase + "vline_leds_br",
-}
-
-// writeSysfsLED writes brightness to a sysfs zone path. Requires root.
-func writeSysfsLED(serial, zone string, brightness int) bool {
-	path, ok := zoneSysfsMap[zone]
-	if !ok {
-		return false
-	}
-	_, _, code := adb.Run([]string{"adb", "-s", serial, "shell",
-		fmt.Sprintf("su -c 'echo %d > %s'", brightness, path)})
-	return code == 0
-}
-
+// ---------------------------------------------------------------------------
+// Package / service detection
+// ---------------------------------------------------------------------------
 
 func detectPkg(serial string) string {
 	for _, pkg := range []string{glyphPkgNew, glyphPkgLegacy} {
@@ -84,9 +64,7 @@ func detectPkg(serial string) string {
 	return ""
 }
 
-func isLegacy(pkg string) bool {
-	return pkg == glyphPkgLegacy
-}
+func isLegacy(pkg string) bool { return pkg == glyphPkgLegacy }
 
 func glyphServiceRunning(serial, pkg string) bool {
 	out := adb.ShellStr(serial, fmt.Sprintf(
@@ -94,24 +72,24 @@ func glyphServiceRunning(serial, pkg string) bool {
 	return out != "" && out != "0"
 }
 
+// ---------------------------------------------------------------------------
+// Device profile lookup (thin wrapper around internal/glyph/profile)
+// ---------------------------------------------------------------------------
+
+// getZonesForModel returns the profile's display name and zone list for the
+// given model/codename string. Empty name / nil zones means no profile found.
+// Retained for callers that only need the zone list (e.g. status display).
 func getZonesForModel(model string) (string, []string) {
-	modelLower := strings.ToLower(model)
-
-	// Sort keys longest-first so more-specific entries (e.g. "A001T") are
-	// checked before shorter prefixes that would otherwise shadow them ("A001").
-	keys := make([]string, 0, len(glyphZones))
-	for k := range glyphZones {
-		keys = append(keys, k)
+	dev, ok := profile.Lookup(model)
+	if !ok {
+		return "", nil
 	}
-	sort.Slice(keys, func(i, j int) bool { return len(keys[i]) > len(keys[j]) })
-
-	for _, key := range keys {
-		if strings.Contains(modelLower, strings.ToLower(key)) {
-			return key, glyphZones[key]
-		}
-	}
-	return "", nil
+	return dev.Model, dev.ZoneNames()
 }
+
+// ---------------------------------------------------------------------------
+// Public actions
+// ---------------------------------------------------------------------------
 
 // ActionGlyph shows Glyph diagnostics or toggles the interface.
 // enable="" means status only; "on"/"off" to toggle.
@@ -159,7 +137,7 @@ func ActionGlyph(serial, model, enable string) error {
 		return nil
 	}
 
-	// Status display
+	// ---- Status display -----------------------------------------------------
 	running := glyphServiceRunning(serial, pkg)
 	fmt.Printf("\n  Glyph package  : %s\n", pkg)
 	stateStr := "not running"
@@ -195,12 +173,16 @@ func ActionGlyph(serial, model, enable string) error {
 		fmt.Println("\n  [INFO] Main on/off toggle: Glyphs Quick Settings tile")
 	}
 
-	// Zone map
-	modelKey, zones := getZonesForModel(model)
-	if modelKey != "" {
-		fmt.Printf("\n  Glyph zones on %s (%d):\n", modelKey, len(zones))
-		for _, z := range zones {
-			fmt.Printf("    \u2022 %s\n", z)
+	// Zone map + backend summary from profile catalogue.
+	if dev, ok := profile.Lookup(model); ok {
+		fmt.Printf("\n  Glyph profile  : %s\n", dev.Model)
+		fmt.Printf("  Backend        : %s\n", dev.Backend)
+		if len(dev.Capabilities) > 0 {
+			fmt.Printf("  Capabilities   : %s\n", strings.Join(dev.Capabilities, ", "))
+		}
+		fmt.Printf("\n  Glyph zones (%d):\n", len(dev.Zones))
+		for _, z := range dev.Zones {
+			fmt.Printf("    \u2022 %s\n", z.Name)
 		}
 	} else {
 		fmt.Printf("\n  Zone map: not available for model '%s'\n", model)
@@ -215,6 +197,10 @@ func ActionGlyph(serial, model, enable string) error {
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// Patterns
+// ---------------------------------------------------------------------------
+
 // GlyphPatterns lists available pattern names and their descriptions.
 var GlyphPatterns = map[string]string{
 	"pulse": "Slow pulse all zones",
@@ -224,49 +210,84 @@ var GlyphPatterns = map[string]string{
 	"test":  "Light each zone once in sequence (diagnostic)",
 }
 
+// runTestPattern walks every zone of the device, turning each on for a beat
+// then off, using whichever backend the profile declares. Zones that require
+// an Android settings toggle (Long torch / Pocket mode) fall back to a
+// settings put when the adapter returns ErrUnsupported or doesn't know the
+// zone.
 func runTestPattern(serial, model string) {
-	_, zones := getZonesForModel(model)
-	if zones == nil {
-		fmt.Printf("[WARN] No zone map found for model '%s' — skipping test pattern.\n", model)
+	dev, ok := profile.Lookup(model)
+	if !ok {
+		fmt.Printf("[WARN] No profile found for model '%s' — skipping test pattern.\n", model)
 		return
 	}
 
-	fmt.Printf("\n  Running test pattern on %s (%d zones)...\n", model, len(zones))
-	for _, zone := range zones {
-		// Try sysfs (root, direct kernel LED driver) first.
-		if writeSysfsLED(serial, zone, 2000) {
-			fmt.Printf("    [ON]  %s\n", zone)
-			time.Sleep(800 * time.Millisecond)
-			writeSysfsLED(serial, zone, 0)
-			fmt.Printf("    [OFF] %s\n", zone)
-		} else if keyInfo, ok := zoneSettingMap[zone]; ok {
-			// Fall back to settings put for zones exposed as Android settings.
+	fmt.Printf("\n  Running test pattern on %s (%d zones, backend=%s)...\n",
+		dev.Model, len(dev.Zones), dev.Backend)
+
+	ad, adErr := adapter.For(serial, dev)
+	if adErr != nil {
+		fmt.Printf("[WARN] %s — falling back to settings-only zones where possible.\n", adErr)
+	}
+
+	for _, z := range dev.Zones {
+		if ad != nil && tryZoneBeat(ad, z.Name) {
+			continue
+		}
+		if keyInfo, ok := zoneSettingMap[z.Name]; ok {
 			ns, key := keyInfo[0], keyInfo[1]
 			adb.Run([]string{"adb", "-s", serial, "shell",
 				fmt.Sprintf("settings put %s %s 1", ns, key)})
-			fmt.Printf("    [ON]  %s (via settings)\n", zone)
+			fmt.Printf("    [ON]  %s (via settings)\n", z.Name)
 			time.Sleep(800 * time.Millisecond)
 			adb.Run([]string{"adb", "-s", serial, "shell",
 				fmt.Sprintf("settings put %s %s 0", ns, key)})
-			fmt.Printf("    [OFF] %s\n", zone)
-		} else {
-			fmt.Printf("    %s: (no direct control available — needs Glyph SDK)\n", zone)
+			fmt.Printf("    [OFF] %s\n", z.Name)
+			time.Sleep(300 * time.Millisecond)
+			continue
 		}
-		time.Sleep(300 * time.Millisecond)
+		fmt.Printf("    %s: (no direct control available)\n", z.Name)
 	}
 	fmt.Println("[OK] Test pattern complete.")
 }
 
-func runOffPattern(serial string) {
-	// Turn off sysfs-controlled zones (requires root).
-	for zone, path := range zoneSysfsMap {
-		_, _, code := adb.Run([]string{"adb", "-s", serial, "shell",
-			fmt.Sprintf("su -c 'echo 0 > %s'", path)})
-		if code == 0 {
-			fmt.Printf("  [OFF] %s\n", zone)
+// tryZoneBeat runs On(80%) → wait → Off on a zone, printing user-facing
+// status. Returns false if the adapter can't drive this zone (caller then
+// tries a fallback); returns true otherwise (regardless of whether an
+// individual write failed, the zone has been "attempted").
+func tryZoneBeat(ad adapter.Adapter, zone string) bool {
+	if err := ad.On(zone, 80); err != nil {
+		if errors.Is(err, adapter.ErrUnsupported) {
+			return false
+		}
+		fmt.Printf("    [ERR] %s: %s\n", zone, err)
+		return true
+	}
+	fmt.Printf("    [ON]  %s\n", zone)
+	time.Sleep(800 * time.Millisecond)
+	if err := ad.Off(zone); err != nil {
+		fmt.Printf("    [ERR] off %s: %s\n", zone, err)
+	} else {
+		fmt.Printf("    [OFF] %s\n", zone)
+	}
+	time.Sleep(300 * time.Millisecond)
+	return true
+}
+
+func runOffPattern(serial, model string) {
+	if dev, ok := profile.Lookup(model); ok {
+		if ad, err := adapter.For(serial, dev); err == nil {
+			if err := ad.OffAll(); err != nil {
+				fmt.Printf("  [WARN] adapter OffAll: %s\n", err)
+			} else {
+				fmt.Printf("  [OFF] all %d zone(s) via %s\n", len(dev.Zones), dev.Backend)
+			}
+		} else {
+			fmt.Printf("  [WARN] no adapter for %s: %s\n", dev.Model, err)
 		}
 	}
-	// Turn off settings-based zones.
+	// Turn off settings-based zones regardless of profile — these are Android-
+	// level features that every Glyph device exposes.
 	for _, gs := range settingsNew {
 		adb.Run([]string{"adb", "-s", serial, "shell",
 			fmt.Sprintf("settings put %s %s 0", gs.ns, gs.key)})
@@ -298,7 +319,7 @@ func ActionGlyphPattern(serial, model, pattern string) error {
 		runTestPattern(serial, model)
 	case "off":
 		fmt.Printf("\n  Turning all Glyph zones off on %s...\n", model)
-		runOffPattern(serial)
+		runOffPattern(serial, model)
 	default:
 		if _, ok := GlyphPatterns[p]; ok {
 			fmt.Printf("\n  [WARN] Pattern '%s' (%s) requires\n", p, GlyphPatterns[p])

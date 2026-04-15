@@ -7,3 +7,6 @@ var DebloatJSON []byte
 
 //go:embed modules.json
 var ModulesJSON []byte
+
+//go:embed glyph_devices.json
+var GlyphDevicesJSON []byte

@@ -27,6 +27,7 @@ Thumbs.db
 .claude/
 
 # Project tracking
+CLAUDE.md
 TODO.md
 
 # Go build artifacts

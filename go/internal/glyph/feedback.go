@@ -97,7 +97,7 @@ type Feedback struct {
 func NewFeedback(serial, codename string) *Feedback {
 	zones := orderedFeedbackZones[strings.ToLower(codename)]
 	// Fall back to helper for devices that have Glyph zones but no direct sysfs access.
-	useHelper := len(zones) == 0 && len(glyphHelperDex) > 0
+	useHelper := len(zones) == 0 && helperAvailable()
 	return &Feedback{
 		serial:    serial,
 		zones:     zones,

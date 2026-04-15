@@ -1,0 +1,115 @@
+{
+  "_comment": "Per-device Glyph LED profiles. Edit freely — add new devices, adjust sysfs paths, or flip capability flags when a kernel update changes the underlying interface.",
+  "_fields": {
+    "codename":             "build.prop ro.product.device codename (e.g. 'galaxian', 'spacewar')",
+    "model":                "display name (e.g. 'Nothing Phone (3a) Lite')",
+    "aliases":              "alternative match strings: retail model numbers (A001T), marketing names",
+    "backend":              "sysfs_noth_leds | sysfs_aw210xx | binder_helper | unknown",
+    "sysfs.brightness_path":"absolute sysfs file for on/off / brightness (single-zone devices)",
+    "sysfs.state_path":     "absolute sysfs file for blink/breath period (integer ms, noth_leds only)",
+    "sysfs.base_path":      "directory prefix for multi-zone sysfs devices (aw210xx, per-zone suffixes)",
+    "sysfs.max_brightness": "hardware range ceiling — adapter scales 0–100 input onto 0–max",
+    "sysfs.brightness_is_binary": "true if any non-zero value is treated as full on (galaxian)",
+    "sysfs.state_semantics":"blink_period_ms | breath_period_ms | none",
+    "sysfs.driver_rebind_path": "/sys/bus/platform/drivers/<driver> for automatic rebind when attrs vanish",
+    "sysfs.device_id":      "device ID echoed into driver bind/unbind (e.g. '3.breathing_lights')",
+    "binder.helper_cmd":    "DEX helper command name — currently always 'glyph-helper.dex'",
+    "zones":                "ordered list; single-zone devices use one entry named 'Glyph'",
+    "zones[].sysfs_path":   "per-zone sysfs brightness file (overrides any base_path derivation)",
+    "capabilities":         "on | off | blink | breath | dim | frame"
+  },
+  "devices": [
+    {
+      "codename": "galaxian",
+      "model": "Nothing Phone (3a) Lite",
+      "aliases": ["A001T", "Phone (3a) Lite"],
+      "backend": "sysfs_noth_leds",
+      "sysfs": {
+        "brightness_path": "/sys/class/leds/noth_leds/brightness",
+        "state_path":      "/sys/class/leds/noth_leds/state",
+        "max_brightness":  255,
+        "brightness_is_binary": true,
+        "state_semantics": "blink_period_ms",
+        "driver_rebind_path": "/sys/bus/platform/drivers/noth_leds",
+        "device_id": "3.breathing_lights"
+      },
+      "zones": [
+        { "name": "Glyph", "sysfs_path": "/sys/class/leds/noth_leds/brightness" }
+      ],
+      "capabilities": ["on", "off", "blink"]
+    },
+    {
+      "codename": "spacewar",
+      "model": "Nothing Phone (1)",
+      "aliases": ["A063", "Phone (1)"],
+      "backend": "sysfs_aw210xx",
+      "sysfs": {
+        "base_path": "/sys/class/leds/aw210xx_led/",
+        "max_brightness": 4095,
+        "brightness_is_binary": false,
+        "state_semantics": "none"
+      },
+      "zones": [
+        { "name": "Camera",      "sysfs_path": "/sys/class/leds/aw210xx_led/rear_cam_led_br"  },
+        { "name": "Diagonal",    "sysfs_path": "/sys/class/leds/aw210xx_led/front_cam_led_br" },
+        { "name": "Battery dot", "sysfs_path": "/sys/class/leds/aw210xx_led/dot_led_br"       },
+        { "name": "Battery bar", "sysfs_path": "/sys/class/leds/aw210xx_led/round_leds_br"    },
+        { "name": "USB",         "sysfs_path": "/sys/class/leds/aw210xx_led/vline_leds_br"    }
+      ],
+      "capabilities": ["on", "off", "dim"]
+    },
+    {
+      "codename": "pong",
+      "model": "Nothing Phone (2)",
+      "aliases": ["Phone (2)"],
+      "backend": "binder_helper",
+      "binder": { "helper_cmd": "glyph-helper.dex" },
+      "zones": [
+        { "name": "Camera top"    },
+        { "name": "Camera bottom" },
+        { "name": "Diagonal"      },
+        { "name": "Battery left"  },
+        { "name": "Battery right" },
+        { "name": "USB"           },
+        { "name": "Notification"  }
+      ],
+      "capabilities": ["on", "off", "dim", "frame"]
+    },
+    {
+      "codename": "pacman",
+      "model": "Nothing Phone (2a)",
+      "aliases": ["Phone (2a)"],
+      "backend": "unknown",
+      "zones": [
+        { "name": "Camera"       },
+        { "name": "Battery"      },
+        { "name": "Bottom strip" }
+      ],
+      "capabilities": []
+    },
+    {
+      "codename": "A001",
+      "model": "Nothing Phone (3a)",
+      "aliases": ["Phone (3a)"],
+      "backend": "unknown",
+      "zones": [
+        { "name": "Camera top"    },
+        { "name": "Camera bottom" },
+        { "name": "Battery"       },
+        { "name": "Bottom strip"  }
+      ],
+      "capabilities": []
+    },
+    {
+      "codename": "CMF Phone 1",
+      "model": "CMF Phone 1",
+      "aliases": [],
+      "backend": "unknown",
+      "zones": [
+        { "name": "Ring" },
+        { "name": "Dot"  }
+      ],
+      "capabilities": []
+    }
+  ]
+}
