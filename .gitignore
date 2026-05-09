@@ -39,3 +39,6 @@ go/internal/data/modules.json
 # Screenshots and recordings captured during testing
 screenshots/
 recordings/
+
+# Reverse-engineering / SDK analysis artifacts
+*.aar
