@@ -116,6 +116,27 @@ func WaitForFastboot(serial string, timeoutSec int) error {
 	return WaitForFastbootCtx(context.Background(), serial, timeoutSec)
 }
 
+// ResolveFastbootSerial returns the serial fastboot identifies the device by,
+// which is NOT always the same as the ADB serial. On Nothing Phone 1 (and some
+// other Snapdragon devices) the bootloader reports an SoC-derived hash (e.g.
+// "fd1163d8") while ADB uses the OEM-assigned serial (e.g. "P2126F000626").
+// Strategy: if `fastboot devices` output contains the ADB serial, prefer that;
+// otherwise return the first listed serial; if no fastboot device is present,
+// return adbSerial unchanged so the caller hits a normal fastboot error.
+func ResolveFastbootSerial(adbSerial string) string {
+	stdout, _, _ := Run([]string{"fastboot", "devices"})
+	if adbSerial != "" && strings.Contains(stdout, adbSerial) {
+		return adbSerial
+	}
+	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) > 0 && fields[0] != "" {
+			return fields[0]
+		}
+	}
+	return adbSerial
+}
+
 // QueryCurrentSlot returns the active A/B slot suffix ("_a" or "_b") reported
 // by fastboot. Returns "unknown" if the variable cannot be parsed.
 func QueryCurrentSlot(serial string) (string, error) {

@@ -12,6 +12,7 @@ var (
 	flagBaseDir       string
 	flagForceDownload bool
 	flagNoBackup      bool
+	flagYes           bool
 )
 
 var rootCmd = &cobra.Command{
@@ -20,6 +21,7 @@ var rootCmd = &cobra.Command{
 	Long: `nothingctl — manage firmware, root, backups, and settings on Nothing Phone devices.
 
 Supports: Nothing Phone (1), (2), (2a), (3a), (3a Lite), CMF Phone (1)`,
+	SilenceUsage: true,
 }
 
 // Execute runs the root command.
@@ -40,6 +42,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flagBaseDir, "base-dir", "", "override default storage root (~/.nothingctl)")
 	rootCmd.PersistentFlags().BoolVar(&flagForceDownload, "force-download", false, "re-download firmware even if already cached")
 	rootCmd.PersistentFlags().BoolVar(&flagNoBackup, "no-backup", false, "skip automatic backup before flashing")
+	rootCmd.PersistentFlags().BoolVarP(&flagYes, "yes", "y", false, "assume 'yes' to all confirmation prompts (non-interactive use)")
 
 	rootCmd.AddGroup(
 		&cobra.Group{ID: "firmware", Title: "Firmware & Root"},

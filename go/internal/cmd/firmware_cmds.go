@@ -264,14 +264,18 @@ var flashFirmwareCmd = &cobra.Command{
 			}
 		}
 
-		if !adb.Confirm("Reboot to bootloader and flash?") {
+		if !flagYes && !adb.Confirm("Reboot to bootloader and flash?") {
 			return fmt.Errorf("cancelled by user")
 		}
 
 		if err := adb.RebootToBootloaderCtx(ctx, serial); err != nil {
 			return err
 		}
-		slot, _ := adb.QueryCurrentSlot(serial)
+		fbSerial := adb.ResolveFastbootSerial(serial)
+		if fbSerial != serial {
+			fmt.Printf("Fastboot serial: %s (differs from ADB serial %s)\n", fbSerial, serial)
+		}
+		slot, _ := adb.QueryCurrentSlot(fbSerial)
 		fmt.Printf("Active slot: %s\n", slot)
 
 		for _, part := range partitions {
@@ -283,13 +287,13 @@ var flashFirmwareCmd = &cobra.Command{
 				fmt.Printf("  Skipping %s (image not found in package)\n", part)
 				continue
 			}
-			if err := adb.FastbootFlashABCtx(ctx, serial, part, imgPath); err != nil {
+			if err := adb.FastbootFlashABCtx(ctx, fbSerial, part, imgPath); err != nil {
 				return err
 			}
 		}
 
 		fmt.Println("\nFlash complete. Rebooting...")
-		if err := adb.FastbootRebootCtx(ctx, serial); err != nil {
+		if err := adb.FastbootRebootCtx(ctx, fbSerial); err != nil {
 			fmt.Printf("  WARNING: reboot failed: %v\n", err)
 		}
 
@@ -343,7 +347,7 @@ var otaUpdateCmd = &cobra.Command{
 		var localPatched string
 		if hasRoot {
 			fmt.Println("\n[Auto] Root detected — patching with Magisk CLI.")
-			localPatched, err = magiskCLIPatch(serial, localImg, fw.ExtractedDir, fw.BootTarget.Filename)
+			localPatched, err = magisk.MagiskCLIPatch(serial, localImg)
 			if err != nil {
 				return err
 			}
@@ -372,17 +376,21 @@ var otaUpdateCmd = &cobra.Command{
 		}
 
 		fmt.Printf("\nWill flash patched %s to BOTH slots.\n", fw.BootTarget.PartitionBase)
-		if !adb.Confirm("Reboot to bootloader and flash?") {
+		if !flagYes && !adb.Confirm("Reboot to bootloader and flash?") {
 			return fmt.Errorf("cancelled by user")
 		}
 
 		if err := adb.RebootToBootloaderCtx(ctx, serial); err != nil {
 			return err
 		}
-		if err := adb.FastbootFlashABCtx(ctx, serial, fw.BootTarget.PartitionBase, localPatched); err != nil {
+		fbSerial := adb.ResolveFastbootSerial(serial)
+		if fbSerial != serial {
+			fmt.Printf("Fastboot serial: %s (differs from ADB serial %s)\n", fbSerial, serial)
+		}
+		if err := adb.FastbootFlashABCtx(ctx, fbSerial, fw.BootTarget.PartitionBase, localPatched); err != nil {
 			return err
 		}
-		if err := adb.FastbootRebootCtx(ctx, serial); err != nil {
+		if err := adb.FastbootRebootCtx(ctx, fbSerial); err != nil {
 			fmt.Printf("  WARNING: reboot failed: %v\n", err)
 		}
 
@@ -395,57 +403,6 @@ var otaUpdateCmd = &cobra.Command{
 		fmt.Printf("[OK] OTA complete. Root preserved on both slots. Now on %s.\n", fw.Version)
 		return nil
 	},
-}
-
-// magiskCLIPatch pushes the stock boot image to /data/local/tmp, patches it
-// with the Magisk CLI, and pulls the result back. Returns the local path of
-// the patched image.
-func magiskCLIPatch(serial, localImg, extractedDir, imgName string) (string, error) {
-	temp := "/data/local/tmp"
-	remoteIn := temp + "/" + imgName
-
-	remoteOut := ""
-	defer func() {
-		toRemove := remoteIn
-		if remoteOut != "" {
-			toRemove += " " + remoteOut
-		}
-		adb.Run([]string{"adb", "-s", serial, "shell", "rm -f " + toRemove})
-	}()
-
-	fmt.Printf("  Pushing %s to device...\n", imgName)
-	if err := adb.AdbPush(serial, localImg, remoteIn); err != nil {
-		return "", err
-	}
-
-	fmt.Println("  Patching with Magisk CLI...")
-	stdout, _, _ := adb.Run([]string{
-		"adb", "-s", serial, "shell",
-		"su -c 'magisk --patch-file " + remoteIn + "' && echo __PATCH_OK__",
-	})
-	if !strings.Contains(stdout, "__PATCH_OK__") {
-		return "", fmt.Errorf("magisk CLI patch failed — ensure Magisk is installed and root is granted.\nOutput: %s", strings.TrimSpace(stdout))
-	}
-
-	// Find the output file (Magisk writes to same directory).
-	stdout2, _, _ := adb.Run([]string{
-		"adb", "-s", serial, "shell",
-		"ls -t " + temp + "/magisk_patched_*.img 2>/dev/null | head -1",
-	})
-	remoteOut = strings.TrimSpace(stdout2)
-	if remoteOut == "" {
-		return "", fmt.Errorf("patched image not found in %s after Magisk patch", temp)
-	}
-
-	parts := strings.Split(remoteOut, "/")
-	patchName := parts[len(parts)-1]
-	localPatched := filepath.Join(extractedDir, patchName)
-
-	fmt.Printf("  Pulling %s...\n", patchName)
-	if err := adb.AdbPull(serial, remoteOut, localPatched); err != nil {
-		return "", err
-	}
-	return localPatched, nil
 }
 
 // ---------------------------------------------------------------------------
