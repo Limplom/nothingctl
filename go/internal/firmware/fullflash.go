@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Limplom/nothingctl/internal/adb"
+	"github.com/Limplom/nothingctl/internal/history"
 	"github.com/Limplom/nothingctl/internal/models"
 )
 
@@ -30,8 +31,9 @@ func readDeviceProps(serial, codename string) (model, currentVersion, resolvedCo
 }
 
 // printFlashBanner prints the pre-flash summary and returns true if the user
-// confirms they want to proceed.
-func printFlashBanner(model, currentVersion, latestTag string, patchBoot BootPatchFunc, skipLogical bool) bool {
+// confirms they want to proceed. If assumeYes is true, the interactive
+// confirmation is skipped and the function returns true unconditionally.
+func printFlashBanner(model, currentVersion, latestTag string, patchBoot BootPatchFunc, skipLogical, assumeYes bool) bool {
 	// 7. Print current vs latest.
 	fmt.Printf("  Current : %s\n", func() string {
 		if currentVersion == "" {
@@ -53,7 +55,11 @@ func printFlashBanner(model, currentVersion, latestTag string, patchBoot BootPat
 		fmt.Println("\n  WARNING: ~4.2 GB download required for logical partitions.")
 	}
 
-	// 11. Confirmation prompt.
+	// 11. Confirmation prompt (skipped under --yes).
+	if assumeYes {
+		fmt.Println("  Auto-confirmed via --yes flag.")
+		return true
+	}
 	return adb.Confirm("This replaces ALL firmware partitions. Continue?")
 }
 
@@ -153,6 +159,12 @@ func flashAllPartitionsCtx(ctx context.Context, serial, destDir, bootDir string,
 	if err := adb.RebootToBootloaderCtx(ctx, serial); err != nil {
 		return err
 	}
+	// Resolve fastboot-mode serial — on some devices (e.g. Phone 1) the
+	// bootloader reports an SoC-derived hash that differs from the ADB serial.
+	fbSerial := adb.ResolveFastbootSerial(serial)
+	if fbSerial != serial {
+		fmt.Printf("  Fastboot serial: %s (differs from ADB serial %s)\n", fbSerial, serial)
+	}
 
 	// 18. Flash firmware partitions (skip any not exposed by this bootloader).
 	fmt.Println("\n  Flashing firmware partitions...")
@@ -165,7 +177,7 @@ outerFirmware:
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			if err := adb.FastbootFlashCtx(ctx, serial, part+slot, ImgPath(firmwareExtractDir, part)); err != nil {
+			if err := adb.FastbootFlashCtx(ctx, fbSerial, part+slot, ImgPath(firmwareExtractDir, part)); err != nil {
 				if strings.Contains(err.Error(), "partition does not exist") {
 					fmt.Println(" skipped (not exposed by bootloader)")
 					continue outerFirmware
@@ -188,7 +200,7 @@ outerFirmware:
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			if err := adb.FastbootFlashCtx(ctx, serial, part+slot, ImgPath(bootDir, part)); err != nil {
+			if err := adb.FastbootFlashCtx(ctx, fbSerial, part+slot, ImgPath(bootDir, part)); err != nil {
 				return err
 			}
 		}
@@ -205,7 +217,7 @@ outerFirmware:
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if err := adb.FastbootFlashCtx(ctx, serial, bootTarget.PartitionBase+slot, bootImgToFlash); err != nil {
+		if err := adb.FastbootFlashCtx(ctx, fbSerial, bootTarget.PartitionBase+slot, bootImgToFlash); err != nil {
 			return err
 		}
 	}
@@ -213,7 +225,7 @@ outerFirmware:
 	// 21. Flash logical partitions if not skipping.
 	logicalExtractDir := destDir
 	if !skipLogical {
-		if err := adb.RebootToFastbootdCtx(ctx, serial); err != nil {
+		if err := adb.RebootToFastbootdCtx(ctx, fbSerial); err != nil {
 			return err
 		}
 		fmt.Println("\n  Flashing logical partitions (fastbootd)...")
@@ -222,19 +234,19 @@ outerFirmware:
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			if err := adb.FastbootFlashCtx(ctx, serial, part, ImgPath(logicalExtractDir, part)); err != nil {
+			if err := adb.FastbootFlashCtx(ctx, fbSerial, part, ImgPath(logicalExtractDir, part)); err != nil {
 				return err
 			}
 			fmt.Println(" OK")
 		}
-		if err := adb.RebootToBootloaderFromFastbootdCtx(ctx, serial); err != nil {
+		if err := adb.RebootToBootloaderFromFastbootdCtx(ctx, fbSerial); err != nil {
 			return err
 		}
 	}
 
 	// 22. Reboot to system.
 	fmt.Println("\nRebooting to system...")
-	if err := adb.FastbootRebootCtx(ctx, serial); err != nil {
+	if err := adb.FastbootRebootCtx(ctx, fbSerial); err != nil {
 		fmt.Printf("  WARNING: reboot failed: %v\n", err)
 	}
 	return nil
@@ -248,7 +260,9 @@ func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootT
 
 // ActionFullFlashCtx is like ActionFullFlash but respects ctx for cancellation
 // of downloads and flash operations. Use signal.NotifyContext to wire Ctrl+C.
-func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, forceDownload, skipLogical bool, patchBoot BootPatchFunc) error {
+// If assumeYes is true, the interactive confirmation prompt is skipped (for
+// non-interactive use under --yes).
+func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, forceDownload, skipLogical, assumeYes bool, patchBoot BootPatchFunc) error {
 	// 1–2. Get model, current firmware, and resolved codename from device.
 	model, currentVersion, codename := readDeviceProps(serial, codename)
 
@@ -261,7 +275,7 @@ func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, f
 		return err
 	}
 
-	if !printFlashBanner(model, currentVersion, latestTag, patchBoot, skipLogical) {
+	if !printFlashBanner(model, currentVersion, latestTag, patchBoot, skipLogical, assumeYes) {
 		return fmt.Errorf("cancelled by user")
 	}
 
@@ -279,7 +293,15 @@ func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, f
 		return err
 	}
 
-	// 23. Print success summary.
+	// 23. Log to flash history so the operation appears in `nothingctl history`.
+	_ = history.LogFlash(baseDir, map[string]any{
+		"operation": "full-flash",
+		"version":   latestTag,
+		"serial":    serial,
+		"arb_index": nil,
+	})
+
+	// 24. Print success summary.
 	fmt.Printf("\n[OK] Full flash complete. Device is now on %s.\n", latestTag)
 	if patchBoot != nil {
 		fmt.Println("     Root (Magisk) preserved on both slots.")
@@ -297,6 +319,6 @@ func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, f
 // forceDownload: re-download even if cached archives exist
 // skipLogical:   skip the ~4 GB logical partition download/flash
 // patchBoot:     optional function to Magisk-patch the boot image; pass nil to flash stock
-func ActionFullFlash(serial, codename, baseDir string, forceDownload, skipLogical bool, patchBoot BootPatchFunc) error {
-	return ActionFullFlashCtx(context.Background(), serial, codename, baseDir, forceDownload, skipLogical, patchBoot)
+func ActionFullFlash(serial, codename, baseDir string, forceDownload, skipLogical, assumeYes bool, patchBoot BootPatchFunc) error {
+	return ActionFullFlashCtx(context.Background(), serial, codename, baseDir, forceDownload, skipLogical, assumeYes, patchBoot)
 }

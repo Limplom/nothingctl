@@ -400,7 +400,10 @@ var otaUpdateCmd = &cobra.Command{
 			"serial":    serial,
 			"arb_index": nil,
 		})
-		fmt.Printf("[OK] OTA complete. Root preserved on both slots. Now on %s.\n", fw.Version)
+		fmt.Printf("[OK] Boot image patched and flashed (%s). Root preserved on both slots.\n", fw.Version)
+		fmt.Println("     System partition unchanged — `getprop ro.build.version.incremental` still")
+		fmt.Println("     reports the previous build. For a full version update including system,")
+		fmt.Println("     run `nothingctl full-flash`.")
 		return nil
 	},
 }
@@ -659,6 +662,7 @@ Requires fastboot access. Device must be connected via USB.`,
 			resolveBaseDir(),
 			flagForceDownload,
 			flagSkipLogical,
+			flagYes,
 			patchFunc,
 		)
 	},
