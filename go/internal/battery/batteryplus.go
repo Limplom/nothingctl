@@ -102,8 +102,7 @@ func parseBatterystats(output string) []appDrain {
 func ActionBatteryStats(serial string) error {
 	model := adb.Model(serial)
 
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "dumpsys battery"})
-	fields := parseDumpsysBattery(stdout)
+	fields := parseDumpsysBattery(adb.ShellStr(serial, "dumpsys battery"))
 
 	levelRaw, hasLevel := intField(fields, "level")
 	statusRaw, hasStatus := intField(fields, "status")

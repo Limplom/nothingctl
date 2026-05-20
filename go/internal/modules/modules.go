@@ -118,7 +118,7 @@ func getInstalledModules(serial string) map[string]bool {
 
 func getInstalledVersions(serial string) map[string]string {
 	cmd := "su -c 'for d in /data/adb/modules/*/; do name=$(basename $d); ver=$(grep -m1 \"^version=\" $d/module.prop 2>/dev/null | cut -d= -f2); echo \"$name|$ver\"; done'"
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
+	stdout := adb.ShellStr(serial, cmd)
 	result := make(map[string]string)
 	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
 		line = strings.TrimRight(line, "\r")
@@ -461,7 +461,7 @@ func ActionModulesStatus(serial string) error {
 	}
 
 	checkCmd := "for d in /data/adb/modules/*/; do name=$(basename $d); if su -c 'test -f $d/disable' 2>/dev/null; then echo \"$name|disabled\"; else echo \"$name|enabled\"; fi; done"
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", checkCmd})
+	stdout := adb.ShellStr(serial, checkCmd)
 
 	states := make(map[string]string)
 	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {

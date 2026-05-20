@@ -35,8 +35,7 @@ func loadPackages() ([]PackageEntry, error) {
 }
 
 func isInstalled(serial, pkg string) bool {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm list packages " + pkg})
-	return strings.Contains(stdout, "package:"+pkg)
+	return strings.Contains(adb.ShellStr(serial, "pm list packages "+pkg), "package:"+pkg)
 }
 
 // ActionDebloat lists debloat package status, or disables listed package IDs.

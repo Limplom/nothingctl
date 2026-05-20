@@ -92,9 +92,7 @@ func resolveSOC(serial string) string {
 }
 
 func imei(serial string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		"service call iphonesubinfo 1 | grep -o \"'[^']*'\" | tr -d \"' \\n\""})
-	candidate := strings.TrimSpace(stdout)
+	candidate := adb.ShellStr(serial, "service call iphonesubinfo 1 | grep -o \"'[^']*'\" | tr -d \"' \\n\"")
 	var digits strings.Builder
 	for _, c := range candidate {
 		if c >= '0' && c <= '9' {

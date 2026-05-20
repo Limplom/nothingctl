@@ -33,7 +33,7 @@ func readCPUFreqs(serial string) []coreInfo {
 		"  onl=$(cat $p/online 2>/dev/null || echo 1); " +
 		"  echo \"$i|$cur|$mx|$onl\"; " +
 		"done"
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", script})
+	stdout := adb.ShellStr(serial, script)
 	var cores []coreInfo
 	for _, line := range strings.Split(stdout, "\n") {
 		line = strings.TrimRight(line, "\r")
@@ -97,8 +97,7 @@ type procInfo struct {
 var headerRe = regexp.MustCompile(`^\s*PID\s+USER`)
 
 func readTopProcesses(serial string, topN int) []procInfo {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		"top -b -n 1 -o PID,USER,%CPU,%MEM,ARGS 2>/dev/null"})
+	stdout := adb.ShellStr(serial, "top -b -n 1 -o PID,USER,%CPU,%MEM,ARGS 2>/dev/null")
 	var procs []procInfo
 	headerSeen := false
 	for _, line := range strings.Split(stdout, "\n") {

@@ -33,7 +33,7 @@ func mib(kb int64) string {
 var memKeyRe = regexp.MustCompile(`^(\w[\w()]+):\s+(\d+)`)
 
 func readProcMeminfo(serial string) map[string]int64 {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "cat /proc/meminfo"})
+	stdout := adb.ShellStr(serial, "cat /proc/meminfo")
 	result := make(map[string]int64)
 	for _, line := range strings.Split(stdout, "\n") {
 		line = strings.TrimRight(line, "\r")
@@ -169,9 +169,7 @@ func snapshotSystem(serial, model string) {
 }
 
 func snapshotPackage(serial, model, pkg string) {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		"dumpsys meminfo " + pkg + " 2>/dev/null"})
-	output := strings.TrimSpace(stdout)
+	output := adb.ShellStr(serial, "dumpsys meminfo "+pkg+" 2>/dev/null")
 	if output == "" || strings.Contains(output, "No process found") || strings.Contains(output, "No services found") {
 		fmt.Printf("\n  Package '%s' not found or not running on %s.\n\n", pkg, model)
 		return

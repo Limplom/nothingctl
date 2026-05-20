@@ -15,9 +15,8 @@ import (
 const remoteTmp = "/data/local/tmp"
 
 func listUserPackages(serial string) []string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm list packages -3"})
 	var pkgs []string
-	for _, line := range adb.ParseShellLines(stdout) {
+	for _, line := range adb.ParseShellLines(adb.ShellStr(serial, "pm list packages -3")) {
 		if strings.HasPrefix(line, "package:") {
 			pkgs = append(pkgs, strings.TrimPrefix(line, "package:"))
 		}
@@ -26,8 +25,7 @@ func listUserPackages(serial string) []string {
 }
 
 func apkPath(pkg, serial string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm path " + pkg})
-	for _, line := range adb.ParseShellLines(stdout) {
+	for _, line := range adb.ParseShellLines(adb.ShellStr(serial, "pm path "+pkg)) {
 		if strings.HasPrefix(line, "package:") {
 			return strings.TrimPrefix(line, "package:")
 		}
@@ -36,9 +34,8 @@ func apkPath(pkg, serial string) string {
 }
 
 func appUID(pkg, serial string) string {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		"dumpsys package " + pkg + " | grep -m1 userId="})
-	for _, line := range adb.ParseShellLines(stdout) {
+	out := adb.ShellStr(serial, "dumpsys package "+pkg+" | grep -m1 userId=")
+	for _, line := range adb.ParseShellLines(out) {
 		if strings.Contains(line, "userId=") {
 			for _, tok := range strings.Fields(line) {
 				if strings.HasPrefix(tok, "userId=") {
@@ -123,8 +120,7 @@ func ActionAppBackup(serial, baseDir string, packages []string) error {
 		// Data
 		remoteTar := fmt.Sprintf("%s/%s_data.tar.gz", remoteTmp, pkg)
 		tarCmd := fmt.Sprintf("su -c 'test -d /data/data/%s && tar czf %s -C /data/data %s 2>/dev/null && echo __OK__'", pkg, remoteTar, pkg)
-		stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", tarCmd})
-		if strings.Contains(stdout, "__OK__") {
+		if strings.Contains(adb.ShellStr(serial, tarCmd), "__OK__") {
 			localTar := filepath.Join(dataDir, pkg+"_data.tar.gz")
 			fmt.Println("    Data : pulling tar archive...")
 			if err := adb.AdbPull(serial, remoteTar, localTar); err != nil {
@@ -135,7 +131,7 @@ func ActionAppBackup(serial, baseDir string, packages []string) error {
 					fmt.Printf("           saved → %s_data.tar.gz  (%.1f MB)\n", pkg, sizeMB)
 				}
 			}
-			adb.Run([]string{"adb", "-s", serial, "shell", "rm -f " + remoteTar})
+			adb.ShellStr(serial, "rm -f "+remoteTar)
 		} else {
 			fmt.Printf("    Data : skipped (no root or /data/data/%s not found)\n", pkg)
 		}
@@ -209,12 +205,12 @@ func ActionAppRestore(serial, baseDir string, packages []string) error {
 		}
 		cmd := fmt.Sprintf("su -c 'tar xzf %s -C /data/data 2>/dev/null && chown -R %s:%s /data/data/%s && rm -f %s && echo __OK__'",
 			remoteTar, uid, uid, pkg, remoteTar)
-		stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
+		stdout := adb.ShellStr(serial, cmd)
 		if strings.Contains(stdout, "__OK__") {
 			fmt.Printf("    [OK] data restored (uid=%s)\n", uid)
 		} else {
 			fmt.Printf("    [WARN] data restore may have failed: %s\n", strings.TrimSpace(stdout))
-			adb.Run([]string{"adb", "-s", serial, "shell", "rm -f " + remoteTar})
+			adb.ShellStr(serial, "rm -f "+remoteTar)
 		}
 	}
 

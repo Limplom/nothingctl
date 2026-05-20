@@ -48,8 +48,7 @@ func parseDumpsysBattery(output string) map[string]string {
 
 func getCycleCount(serial string) string {
 	// Method 1: batterystats
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		"dumpsys batterystats | grep -E 'Charge cycle count'"})
+	stdout := adb.ShellStr(serial, "dumpsys batterystats | grep -E 'Charge cycle count'")
 	for _, line := range strings.Split(stdout, "\n") {
 		if strings.Contains(line, "Charge cycle count") && strings.Contains(line, "=") {
 			parts := strings.Split(line, "=")
@@ -91,8 +90,7 @@ func intField(fields map[string]string, key string) (int, bool) {
 func ActionBattery(serial string) error {
 	model := adb.Model(serial)
 
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "dumpsys battery"})
-	fields := parseDumpsysBattery(stdout)
+	fields := parseDumpsysBattery(adb.ShellStr(serial, "dumpsys battery"))
 
 	levelRaw, hasLevel := intField(fields, "level")
 	statusRaw, hasStatus := intField(fields, "status")

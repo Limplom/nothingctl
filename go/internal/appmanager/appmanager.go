@@ -38,8 +38,7 @@ var pkgVersionCodeRe = regexp.MustCompile(`\s+versionCode:(\d+)$`)
 // ---------------------------------------------------------------------------
 
 func packageExists(serial, pkg string) bool {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm list packages " + pkg})
-	return strings.Contains(stdout, "package:"+pkg)
+	return strings.Contains(adb.ShellStr(serial, "pm list packages "+pkg), "package:"+pkg)
 }
 
 
@@ -138,8 +137,7 @@ func parseAppInfo(serial, pkg string) (map[string]string, error) {
 		apkPath = strings.TrimRight(codePath, "/") + "/base.apk"
 	}
 	if apkPath == "" {
-		stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm list packages -f " + pkg})
-		for _, line := range adb.ParseShellLines(stdout) {
+		for _, line := range adb.ParseShellLines(adb.ShellStr(serial, "pm list packages -f "+pkg)) {
 			if strings.HasPrefix(line, "package:") && strings.Contains(line, "="+pkg) {
 				line = strings.TrimPrefix(line, "package:")
 				parts := strings.Split(line, "=")
@@ -153,8 +151,7 @@ func parseAppInfo(serial, pkg string) (map[string]string, error) {
 
 	apkSize := ""
 	if apkPath != "" {
-		stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "stat " + apkPath + " 2>/dev/null"})
-		if m := apkSizeRe.FindStringSubmatch(stdout); len(m) >= 2 {
+		if m := apkSizeRe.FindStringSubmatch(adb.ShellStr(serial, "stat "+apkPath+" 2>/dev/null")); len(m) >= 2 {
 			var n int64
 			fmt.Sscanf(m[1], "%d", &n)
 			apkSize = fmtBytes(n)
@@ -302,9 +299,8 @@ func ActionLaunchApp(serial, packageName, deepLink string) error {
 	}
 
 	// Interactive selection
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm list packages -3"})
 	var packages []string
-	for _, line := range adb.ParseShellLines(stdout) {
+	for _, line := range adb.ParseShellLines(adb.ShellStr(serial, "pm list packages -3")) {
 		if strings.HasPrefix(line, "package:") {
 			packages = append(packages, strings.TrimPrefix(line, "package:"))
 		}

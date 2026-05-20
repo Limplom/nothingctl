@@ -121,8 +121,7 @@ func auditSingle(serial, pkg string) error {
 
 	// Detect package not found
 	if !strings.Contains(output, "Package ["+pkg+"]") && !strings.Contains(output, "package:"+pkg) {
-		stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm list packages " + pkg})
-		if !strings.Contains(stdout, "package:"+pkg) {
+		if !strings.Contains(adb.ShellStr(serial, "pm list packages "+pkg), "package:"+pkg) {
 			return nterrors.AdbError(fmt.Sprintf("Package not found on device: %s", pkg))
 		}
 	}

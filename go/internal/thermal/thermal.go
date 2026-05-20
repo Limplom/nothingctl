@@ -97,12 +97,12 @@ type thermalZone struct {
 }
 
 func readThermalZones(serial string) []thermalZone {
-	stdout, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
+	stdout := adb.ShellStr(serial,
 		"su -c 'for d in /sys/class/thermal/thermal_zone*/; do " +
 			"  t=$(cat $d/type 2>/dev/null); " +
 			"  v=$(cat $d/temp 2>/dev/null); " +
 			"  echo \"$d|$t|$v\"; " +
-			"done'"})
+			"done'")
 	var results []thermalZone
 	for _, line := range strings.Split(stdout, "\n") {
 		line = strings.TrimRight(line, "\r")
