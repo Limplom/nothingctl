@@ -128,9 +128,7 @@ func snapshotSystem(serial, model string) {
 		fmt.Printf("  %-16s: %10s  %s\n", "Swap used", mib(swapUsed), asciiBar(float64(swapUsed), float64(swapTotal), 24))
 	}
 
-	r2out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		"dumpsys meminfo 2>/dev/null | head -120"})
-	entries := parseRssSummary(r2out)
+	entries := parseRssSummary(adb.ShellStr(serial, "dumpsys meminfo 2>/dev/null | head -120"))
 	if len(entries) > 0 {
 		fmt.Printf("\n  Top processes by RSS:\n\n")
 		fmt.Printf("  %-48s %10s\n", "Process", "RSS")

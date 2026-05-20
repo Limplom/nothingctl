@@ -41,7 +41,7 @@ func duSorted(serial, path string, topN int, useRoot bool) [][2]interface{} {
 	if useRoot {
 		cmd = fmt.Sprintf("su -c '%s'", cmd)
 	}
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", cmd})
+	out := adb.ShellStr(serial, cmd)
 	var results [][2]interface{}
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimRight(line, "\r")
@@ -57,9 +57,7 @@ func duSorted(serial, path string, topN int, useRoot bool) [][2]interface{} {
 }
 
 func freeSpace(serial, mount string) string {
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		fmt.Sprintf("df -h %s 2>/dev/null | tail -1", mount)})
-	parts := strings.Fields(strings.TrimRight(out, "\r\n"))
+	parts := strings.Fields(adb.ShellStr(serial, fmt.Sprintf("df -h %s 2>/dev/null | tail -1", mount)))
 	if len(parts) >= 4 {
 		return fmt.Sprintf("free %s of %s", parts[3], parts[1])
 	}
@@ -156,7 +154,7 @@ func ActionAPKExtract(serial, baseDir string, includeSystem bool) error {
 	failed := 0
 
 	for _, pkg := range packages {
-		pathOut, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pm", "path", pkg})
+		pathOut := adb.ShellStr(serial, "pm path "+pkg)
 		apkPath := ""
 		for _, line := range strings.Split(pathOut, "\n") {
 			line = strings.TrimRight(line, "\r")

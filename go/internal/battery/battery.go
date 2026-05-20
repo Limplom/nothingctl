@@ -154,9 +154,7 @@ func ActionBattery(serial string) error {
 		{"/sys/class/power_supply/battery/charge_full", "current max"},
 		{"/sys/class/power_supply/battery/charge_full_design", "design"},
 	} {
-		out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-			"cat " + node.path + " 2>/dev/null"})
-		raw := strings.TrimSpace(out)
+		raw := adb.ShellStr(serial, "cat "+node.path+" 2>/dev/null")
 		if raw != "" {
 			var uah int64
 			if _, err := fmt.Sscanf(raw, "%d", &uah); err == nil {

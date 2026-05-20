@@ -32,8 +32,7 @@ func ActionLogcat(serial, baseDir, packageName, tag, level string, lines int) er
 
 	pidFilter := ""
 	if packageName != "" {
-		pidOut, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "pidof " + packageName})
-		pidParts := strings.Fields(strings.TrimSpace(pidOut))
+		pidParts := strings.Fields(adb.ShellStr(serial, "pidof "+packageName))
 		if len(pidParts) > 0 {
 			pidFilter = "--pid=" + pidParts[0]
 			fmt.Printf("  Package %s \u2192 PID %s\n", packageName, pidParts[0])
@@ -124,10 +123,9 @@ func ActionANRDump(serial, baseDir string) error {
 	anyFound := false
 
 	for _, src := range sources {
-		countOut, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-			fmt.Sprintf("su -c 'ls %s/ 2>/dev/null | wc -l'", src.path)})
+		countOut := adb.ShellStr(serial, fmt.Sprintf("su -c 'ls %s/ 2>/dev/null | wc -l'", src.path))
 		var count int
-		fmt.Sscanf(strings.TrimSpace(countOut), "%d", &count)
+		fmt.Sscanf(countOut, "%d", &count)
 
 		if count == 0 {
 			fmt.Printf("  %-12s: empty (no crashes recorded)\n", src.label)
@@ -136,9 +134,9 @@ func ActionANRDump(serial, baseDir string) error {
 		fmt.Printf("  %-12s: %d file(s) \u2014 copying...\n", src.label, count)
 
 		tmp := fmt.Sprintf("%s/%s_dump_%s", remoteTmp, src.label, ts)
-		r2out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-			fmt.Sprintf("su -c 'cp -r %s %s && chmod -R 644 %s/* 2>/dev/null && echo __OK__'",
-				src.path, tmp, tmp)})
+		r2out := adb.ShellStr(serial, fmt.Sprintf(
+			"su -c 'cp -r %s %s && chmod -R 644 %s/* 2>/dev/null && echo __OK__'",
+			src.path, tmp, tmp))
 
 		if !strings.Contains(r2out, "__OK__") {
 			fmt.Printf("  [WARN] Could not copy %s (root needed?)\n", src.path)

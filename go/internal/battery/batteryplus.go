@@ -175,9 +175,9 @@ func ActionBatteryStats(serial string) error {
 		}
 	}
 
-	statsOut, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "dumpsys batterystats --charged"})
+	statsOut := adb.ShellStr(serial, "dumpsys batterystats --charged")
 	var drainList []appDrain
-	if strings.TrimSpace(statsOut) != "" {
+	if statsOut != "" {
 		drainList = parseBatterystats(statsOut)
 	}
 	topApps := drainList

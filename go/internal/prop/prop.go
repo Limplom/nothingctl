@@ -58,9 +58,7 @@ func parseGetprop(output string) [][2]string {
 // key="" means dump all grouped by prefix.
 func ActionPropGet(serial, model, key string) error {
 	if key != "" {
-		out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-			fmt.Sprintf("getprop %s", key)})
-		val := strings.TrimSpace(out)
+		val := adb.ShellStr(serial, "getprop "+key)
 		if val == "" {
 			fmt.Printf("  [WARN] Property '%s' is empty or not set.\n", key)
 		} else {

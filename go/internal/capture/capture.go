@@ -74,8 +74,7 @@ func ActionScreenrecord(serial, baseDir string, duration int) error {
 
 	// Determine --size arg to avoid encoder failures (e.g. Nothing Phone 1)
 	var sizeArgs []string
-	sizeOut, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "wm size"})
-	if m := wmSizeRe.FindStringSubmatch(sizeOut); m != nil {
+	if m := wmSizeRe.FindStringSubmatch(adb.ShellStr(serial, "wm size")); m != nil {
 		var w, h int
 		fmt.Sscanf(m[1], "%d", &w)
 		fmt.Sscanf(m[2], "%d", &h)

@@ -120,9 +120,7 @@ const (
 )
 
 func hasPkg(serial, pkg string) bool {
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		fmt.Sprintf("pm list packages %s", pkg)})
-	return strings.Contains(out, pkg)
+	return strings.Contains(adb.ShellStr(serial, "pm list packages "+pkg), pkg)
 }
 
 // ActionEssentialSpace shows or toggles Essential Space.
