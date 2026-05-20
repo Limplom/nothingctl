@@ -29,6 +29,7 @@ var (
 	flagDryRun      bool
 	flagPartitions  string // comma-separated list
 	flagSkipLogical bool
+	flagBootOnly    bool
 )
 
 // ---------------------------------------------------------------------------
@@ -57,6 +58,10 @@ func init() {
 
 	// firmware commands
 	rootCmd.AddCommand(flashFirmwareCmd)
+	otaUpdateCmd.Flags().BoolVar(&flagBootOnly, "boot-only", false,
+		"skip system partitions; only flash the Magisk-patched boot image (~250 MB, faster, but build number stays unchanged)")
+	otaUpdateCmd.Flags().BoolVar(&flagSkipLogical, "skip-logical", false,
+		"skip the ~4 GB logical partition download (flash firmware + boot only)")
 	rootCmd.AddCommand(otaUpdateCmd)
 
 	// magisk commands
@@ -315,8 +320,27 @@ var flashFirmwareCmd = &cobra.Command{
 var otaUpdateCmd = &cobra.Command{
 	Use:     "ota-update",
 	GroupID: "firmware",
-	Short:   "One-shot: download latest firmware and flash patched boot image (preserves root)",
+	Short:   "One-shot: full OTA update — patches boot with Magisk + flashes all partitions (preserves root)",
+	Long: `Full OTA update: downloads boot + firmware + logical archives from
+nothing_archive, patches the boot image with Magisk if root is active,
+and flashes everything (all 3 tiers, ~4 GB) to both A/B slots.
+
+This is equivalent to running 'full-flash' (kept as an alias). After the
+flash, ro.build.version.incremental, security_patch, and the user-visible
+fingerprint all match the new firmware tag.
+
+Use --boot-only for the legacy lightweight path: download + patch only
+the boot image (~250 MB, faster) — preserves Magisk but does NOT update
+the system partitions, so the build number stays unchanged. This is what
+you want for a Magisk-survive-only flow on the V3.x security branch
+between full system releases.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Default path: delegate to full-flash (boot + firmware + logical, all 3 tiers).
+		if !flagBootOnly {
+			return fullFlashCmd.RunE(cmd, args)
+		}
+
+		// Legacy --boot-only path: download + patch + flash only boot.img.
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
@@ -402,8 +426,8 @@ var otaUpdateCmd = &cobra.Command{
 		})
 		fmt.Printf("[OK] Boot image patched and flashed (%s). Root preserved on both slots.\n", fw.Version)
 		fmt.Println("     System partition unchanged — `getprop ro.build.version.incremental` still")
-		fmt.Println("     reports the previous build. For a full version update including system,")
-		fmt.Println("     run `nothingctl full-flash`.")
+		fmt.Println("     reports the previous build. For a full update including system,")
+		fmt.Println("     run `nothingctl ota-update` (without --boot-only).")
 		return nil
 	},
 }
@@ -632,11 +656,16 @@ No files are downloaded — use ota-update to download and flash.`,
 var fullFlashCmd = &cobra.Command{
 	Use:     "full-flash",
 	GroupID: "firmware",
-	Short:   "Download and flash all partitions (firmware + boot + logical ~4 GB)",
+	Short:   "Alias for `ota-update` (without --boot-only) — download + flash all 3 tiers (~4 GB)",
 	Long: `Full firmware flash: downloads image-boot, image-firmware, and image-logical
 archives from nothing_archive and flashes all partitions.
 
-If Magisk root is active, init_boot is patched before flashing to preserve root.
+This is the same code path as 'ota-update' run without --boot-only; the
+two commands are interchangeable. Kept for backward compatibility and
+because the name describes what actually happens at the lowest level.
+
+If Magisk root is active, the boot image is patched with boot_patch.sh
+before flashing to preserve root through the system replacement.
 
 Requires fastboot access. Device must be connected via USB.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
