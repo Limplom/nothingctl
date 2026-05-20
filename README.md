@@ -82,7 +82,9 @@ nothingctl ota-update
 | `install-magisk` | Download + install/update Magisk APK on device | ADB |
 | `update-magisk` | Update Magisk to latest version | ADB |
 | `flash-firmware` | Flash all boot partitions from nothing_archive + ARB check | Fastboot |
-| `ota-update` | One-shot: download + Magisk CLI patch + flash (root preserved) | ADB root + Fastboot |
+| `ota-update` | One-shot full OTA: patch boot with Magisk + flash all 3 archive tiers (boot + firmware + logical, ~4 GB) — auto-backup unless `--no-backup`, root preserved | ADB root + Fastboot |
+| `ota-update --boot-only` | Lightweight: patch + flash only `boot.img` (~250 MB, faster; build number unchanged) | ADB root + Fastboot |
+| `full-flash` | Alias for `ota-update` (without `--boot-only`) | ADB root + Fastboot |
 | `unroot` | Flash stock boot to both slots (removes root) | Fastboot |
 | `push-for-patch` | Push stock boot image to /sdcard/Download/ | ADB |
 | `flash-patched` | Pull magisk_patched*.img and flash both slots | Fastboot |
@@ -278,6 +280,7 @@ nothingctl self-update --dry-run  # preview only
 | `--base-dir` | Override default storage root (`~/tools/Nothing`) |
 | `--force-download` | Re-download firmware even if already cached |
 | `--no-backup` | Skip automatic backup before flashing |
+| `-y, --yes` | Assume "yes" to all confirmation prompts (non-interactive / CI use) |
 
 ---
 
