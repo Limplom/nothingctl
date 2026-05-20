@@ -3,7 +3,6 @@ package backup
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -74,7 +73,7 @@ func ActionBackupCtx(ctx context.Context, serial, baseDir string) error {
 	}
 
 	timestamp := time.Now().Format("20060102_150405")
-	return actionBackupWithLabelCtx(ctx, serial, baseDir, timestamp, "")
+	return actionBackupWithLabelCtx(ctx, serial, baseDir, timestamp)
 }
 
 // ActionBackupWithLabelCtx is like ActionBackupCtx but accepts a custom label
@@ -86,14 +85,10 @@ func ActionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label string
 				"Enable in Magisk: Settings -> Superuser access -> Apps and ADB.",
 		)
 	}
-	return actionBackupWithLabelCtx(ctx, serial, baseDir, label, "")
+	return actionBackupWithLabelCtx(ctx, serial, baseDir, label)
 }
 
-func actionBackupWithLabel(serial, baseDir, label, password string) error {
-	return actionBackupWithLabelCtx(context.Background(), serial, baseDir, label, password)
-}
-
-func actionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label, password string) error {
+func actionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label string) error {
 	localDir := filepath.Join(baseDir, "Backups", "partition-backup", "backup_"+label)
 	if err := os.MkdirAll(localDir, 0o755); err != nil {
 		return nterrors.AdbError("creating backup directory: " + err.Error())
@@ -184,17 +179,8 @@ func actionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label, passw
 		fmt.Printf("  WARNING: could not save checksums: %v\n", err)
 	}
 
-	encNote := ""
-	if password != "" {
-		fmt.Println("\nEncrypting backup images...")
-		if encErr := encryptBackup(localDir, password); encErr != nil {
-			return encErr
-		}
-		encNote = "  (encrypted)"
-	}
-
-	fmt.Printf("[OK] %d partitions backed up (%.0f MB) -> %s%s\n",
-		len(images), totalMB, localDir, encNote)
+	fmt.Printf("[OK] %d partitions backed up (%.0f MB) -> %s\n",
+		len(images), totalMB, localDir)
 	return nil
 }
 
@@ -229,82 +215,6 @@ func saveChecksums(images []string, destDir string) error {
 		return err
 	}
 	fmt.Printf("  Checksums : checksums.sha256 (%d entries)\n", len(lines))
-	return nil
-}
-
-// encryptBackup encrypts all .img files in localDir with AES-256-GCM using a
-// single shared scrypt-derived key. Salt is saved as encryption.salt.
-func encryptBackup(localDir, password string) error {
-	entries, _ := os.ReadDir(localDir)
-	var images []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".img") {
-			images = append(images, filepath.Join(localDir, e.Name()))
-		}
-	}
-
-	// Generate a shared salt and write it.
-	saltBytes := make([]byte, saltLen)
-	if _, err := io.ReadFull(rand.Reader, saltBytes); err != nil {
-		return nterrors.AdbError("generating encryption salt: " + err.Error())
-	}
-	saltFile := filepath.Join(localDir, "encryption.salt")
-	if err := os.WriteFile(saltFile, saltBytes, 0o600); err != nil {
-		return nterrors.AdbError("writing encryption.salt: " + err.Error())
-	}
-
-	for _, imgPath := range images {
-		encPath := imgPath + ".enc"
-		// Temporarily write salt next to output so EncryptFile can find it via
-		// the generic .salt convention — but for the shared-salt scheme we
-		// derive the key ourselves and call the low-level helper.
-		if err := encryptFileWithSalt(imgPath, encPath, password, saltBytes); err != nil {
-			return err
-		}
-		if rmErr := os.Remove(imgPath); rmErr != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: could not remove %s: %v\n", imgPath, rmErr)
-		}
-	}
-
-	fmt.Printf("  Encrypted %d partition images.\n", len(images))
-	fmt.Println("  Keep the password safe — backups cannot be decrypted without it.")
-	return nil
-}
-
-// decryptBackup decrypts all .img.enc files in localDir using encryption.salt.
-func decryptBackup(localDir, password string) error {
-	saltFile := filepath.Join(localDir, "encryption.salt")
-	saltBytes, err := os.ReadFile(saltFile)
-	if err != nil {
-		return nterrors.AdbError(
-			"encryption salt file not found in " + localDir + ".\n" +
-				"Cannot decrypt backup without it.",
-		)
-	}
-
-	entries, _ := os.ReadDir(localDir)
-	var encImages []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".img.enc") {
-			encImages = append(encImages, filepath.Join(localDir, e.Name()))
-		}
-	}
-	if len(encImages) == 0 {
-		return nterrors.AdbError("no .img.enc files found in " + localDir)
-	}
-
-	for _, encPath := range encImages {
-		// Strip trailing ".enc" to get original .img name.
-		imgPath := encPath[:len(encPath)-4]
-		if err := decryptFileWithSalt(encPath, imgPath, password, saltBytes); err != nil {
-			return err
-		}
-		if rmErr := os.Remove(encPath); rmErr != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: could not remove %s: %v\n", encPath, rmErr)
-		}
-	}
-
-	fmt.Printf("  Decrypted %d partition images.\n", len(encImages))
 	return nil
 }
 
