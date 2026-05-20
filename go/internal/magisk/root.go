@@ -10,13 +10,6 @@ import (
 	"github.com/Limplom/nothingctl/internal/models"
 )
 
-// HasRoot returns true if any root manager (Magisk, KernelSU, APatch) is
-// active on the device and `su -c id` reports uid=0.
-func HasRoot(serial string) bool {
-	stdout, _, code := adb.Run([]string{"adb", "-s", serial, "shell", "su -c id"})
-	return code == 0 && strings.Contains(stdout, "uid=0")
-}
-
 // DetectRootManager probes the device for known root managers and returns the
 // first one found. Returns RootManagerNone if the device is not rooted.
 func DetectRootManager(serial string) models.RootManager {
@@ -64,14 +57,6 @@ func CheckKernelSU(serial string) (installed bool, version string, managerApp bo
 	})
 	managerApp = strings.Contains(stdout, "me.weishu.kernelsu")
 	return
-}
-
-// CheckAPatch returns true when the APatch daemon (apd) is present on the device.
-func CheckAPatch(serial string) bool {
-	stdout, _, code := adb.Run([]string{
-		"adb", "-s", serial, "shell", "which apd 2>/dev/null",
-	})
-	return code == 0 && strings.TrimSpace(stdout) != ""
 }
 
 // PrintRootStatus detects which root manager is active and prints a status

@@ -77,13 +77,6 @@ func ActionBackupCtx(ctx context.Context, serial, baseDir string) error {
 	return actionBackupWithLabelCtx(ctx, serial, baseDir, timestamp, "")
 }
 
-// ActionBackup dumps all backupPartitions from the device to a timestamped
-// local directory under baseDir/Backups/partition-backup/. Requires ADB root.
-// If password is non-empty, all dumped images are encrypted with AES-256-GCM.
-func ActionBackup(serial, baseDir string) error {
-	return ActionBackupCtx(context.Background(), serial, baseDir)
-}
-
 // ActionBackupWithLabelCtx is like ActionBackupCtx but accepts a custom label
 // for the backup directory name (e.g. "pre_flash_v2.6"). Used by flash operations.
 func ActionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label string) error {
@@ -94,12 +87,6 @@ func ActionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label string
 		)
 	}
 	return actionBackupWithLabelCtx(ctx, serial, baseDir, label, "")
-}
-
-// ActionBackupWithLabel is like ActionBackup but accepts a custom label for
-// the backup directory name (e.g. "pre_flash_v2.6"). Used by flash operations.
-func ActionBackupWithLabel(serial, baseDir, label string) error {
-	return ActionBackupWithLabelCtx(context.Background(), serial, baseDir, label)
 }
 
 func actionBackupWithLabel(serial, baseDir, label, password string) error {

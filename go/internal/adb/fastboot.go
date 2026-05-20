@@ -110,12 +110,6 @@ func WaitForFastbootCtx(ctx context.Context, serial string, timeoutSec int) erro
 	}
 }
 
-// WaitForFastboot polls `fastboot devices` until the device with the given
-// serial appears, or until timeoutSec seconds have elapsed.
-func WaitForFastboot(serial string, timeoutSec int) error {
-	return WaitForFastbootCtx(context.Background(), serial, timeoutSec)
-}
-
 // ResolveFastbootSerial returns the serial fastboot identifies the device by,
 // which is NOT always the same as the ADB serial. On Nothing Phone 1 (and some
 // other Snapdragon devices) the bootloader reports an SoC-derived hash (e.g.
@@ -228,13 +222,6 @@ func WaitForFastbootdCtx(ctx context.Context, serial string, timeoutSec int) err
 	}
 }
 
-// WaitForFastbootd polls until the device enters userspace fastboot (fastbootd).
-// It checks `fastboot getvar is-userspace` for the value "yes".
-// Returns an error after timeoutSec seconds.
-func WaitForFastbootd(serial string, timeoutSec int) error {
-	return WaitForFastbootdCtx(context.Background(), serial, timeoutSec)
-}
-
 // RebootToFastbootdCtx runs `fastboot reboot fastboot` then waits for the
 // device to enter userspace fastboot (fastbootd). ctx is forwarded to
 // WaitForFastbootdCtx so the caller can cancel.
@@ -247,12 +234,6 @@ func RebootToFastbootdCtx(ctx context.Context, serial string) error {
 	args = append(args, "reboot", "fastboot")
 	Run(args) // ignore exit code — device may disconnect before returning
 	return WaitForFastbootdCtx(ctx, serial, 90)
-}
-
-// RebootToFastbootd runs `fastboot reboot fastboot` then waits for the device
-// to enter userspace fastboot (fastbootd).
-func RebootToFastbootd(serial string) error {
-	return RebootToFastbootdCtx(context.Background(), serial)
 }
 
 // RebootToBootloaderFromFastbootdCtx runs `fastboot reboot bootloader` from
@@ -269,8 +250,3 @@ func RebootToBootloaderFromFastbootdCtx(ctx context.Context, serial string) erro
 	return WaitForFastbootCtx(ctx, serial, 60)
 }
 
-// RebootToBootloaderFromFastbootd runs `fastboot reboot bootloader` from
-// fastbootd mode, then waits for the device to appear in regular fastboot.
-func RebootToBootloaderFromFastbootd(serial string) error {
-	return RebootToBootloaderFromFastbootdCtx(context.Background(), serial)
-}

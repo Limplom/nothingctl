@@ -478,7 +478,7 @@ func ActionModulesStatus(serial string) error {
 		}
 	}
 
-	fmt.Println("\n  Installed Magisk modules:\n")
+	fmt.Println("\n  Installed Magisk modules:")
 	var sorted []string
 	for d := range states {
 		sorted = append(sorted, d)

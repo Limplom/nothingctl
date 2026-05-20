@@ -30,7 +30,7 @@ var keycodes = []keycode{
 }
 
 func printKeycodeReference() {
-	fmt.Println("\n  Android Keycode Reference\n")
+	fmt.Println("\n  Android Keycode Reference")
 	fmt.Printf("  %-30s  %4s\n", "Keycode name", "Code")
 	fmt.Printf("  %-30s  %4s\n", strings.Repeat("-", 30), "----")
 	for _, k := range keycodes {

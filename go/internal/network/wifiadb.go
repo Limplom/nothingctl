@@ -56,7 +56,7 @@ func ActionWifiADB(serial string) error {
 
 	if strings.Contains(strings.ToLower(outStr), "connected") {
 		fmt.Printf("[OK] Wireless ADB active on %s\n", target)
-		fmt.Println("     You can now disconnect the USB cable.\n")
+		fmt.Println("     You can now disconnect the USB cable.")
 		fmt.Printf("Reconnect later with:  adb connect %s\n", target)
 		fmt.Printf("Disconnect with:       adb disconnect %s\n", target)
 		return nil
@@ -69,11 +69,11 @@ func ActionWifiADB(serial string) error {
 // ActionADBPair guides through Android 11+ wireless ADB pairing.
 // port is the final connection port (default 5555).
 func ActionADBPair(port int) error {
-	fmt.Println("\n  Wireless ADB Pairing (Android 11+)\n")
+	fmt.Println("\n  Wireless ADB Pairing (Android 11+)")
 	fmt.Println("  On your phone:")
 	fmt.Println("    1. Settings -> Developer options -> Wireless debugging")
 	fmt.Println("    2. Tap \"Pair device with pairing code\"")
-	fmt.Println("    3. Note the IP address, pairing port, and 6-digit code shown on screen\n")
+	fmt.Println("    3. Note the IP address, pairing port, and 6-digit code shown on screen")
 
 	ipAddr, err := adb.Prompt("  Enter device IP address: ")
 	if err != nil {
@@ -105,7 +105,7 @@ func ActionADBPair(port int) error {
 				"The pairing code expires after a short time — try again if needed.",
 			combined))
 	}
-	fmt.Println("[OK] Device paired!\n")
+	fmt.Println("[OK] Device paired!")
 
 	if port == 0 {
 		port = 5555

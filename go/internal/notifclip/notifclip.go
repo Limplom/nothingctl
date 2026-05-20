@@ -145,7 +145,7 @@ func ActionNotifications(serial, model, packageName string) error {
 		if packageName != "" {
 			fmt.Printf("  No notifications found for package: %s\n\n", packageName)
 		} else {
-			fmt.Println("  No active notifications.\n")
+			fmt.Println("  No active notifications.")
 		}
 		return nil
 	}
@@ -264,7 +264,7 @@ func ActionClipboard(serial, model, text string) error {
 	}
 	fmt.Printf("  [INFO] Clipboard read requires foreground app access on Android 10+ (%s).\n", sdkLabel)
 	fmt.Println("         Background reads via adb shell are blocked by the OS.")
-	fmt.Println("         Use --text \"content\" to set clipboard instead.\n")
+	fmt.Println("         Use --text \"content\" to set clipboard instead.")
 	return nil
 }
 

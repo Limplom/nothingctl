@@ -191,12 +191,6 @@ func DownloadFirmwareArchiveCtx(ctx context.Context, assets []map[string]any, de
 	return nil
 }
 
-// DownloadFirmwareArchive is a convenience shim around DownloadFirmwareArchiveCtx
-// that uses context.Background().
-func DownloadFirmwareArchive(assets []map[string]any, destDir string, force bool) error {
-	return DownloadFirmwareArchiveCtx(context.Background(), assets, destDir, force)
-}
-
 // DownloadLogicalArchiveCtx downloads all image-logical.7z.001/.002/... parts
 // and extracts them into destDir. Skips if system.img already exists.
 // The request is bound to ctx so callers can cancel or time-out the operation.
@@ -246,12 +240,6 @@ func DownloadLogicalArchiveCtx(ctx context.Context, assets []map[string]any, des
 		}
 	}
 	return nil
-}
-
-// DownloadLogicalArchive is a convenience shim around DownloadLogicalArchiveCtx
-// that uses context.Background().
-func DownloadLogicalArchive(assets []map[string]any, destDir string, force bool) error {
-	return DownloadLogicalArchiveCtx(context.Background(), assets, destDir, force)
 }
 
 // FindMagiskPatched finds the most-recently-created magisk_patched*.img on the

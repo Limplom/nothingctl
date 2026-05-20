@@ -328,16 +328,3 @@ func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, f
 	return nil
 }
 
-// ActionFullFlash performs a complete firmware flash: downloads and flashes
-// firmware partitions, boot partitions, optionally logical partitions, and
-// preserves Magisk root if the device is rooted.
-//
-// serial:        ADB serial of the connected device
-// codename:      device codename (e.g. "Galaxian")
-// baseDir:       root storage directory (e.g. ~/.nothingctl)
-// forceDownload: re-download even if cached archives exist
-// skipLogical:   skip the ~4 GB logical partition download/flash
-// patchBoot:     optional function to Magisk-patch the boot image; pass nil to flash stock
-func ActionFullFlash(serial, codename, baseDir string, forceDownload, skipLogical, assumeYes, noBackup bool, patchBoot BootPatchFunc) error {
-	return ActionFullFlashCtx(context.Background(), serial, codename, baseDir, forceDownload, skipLogical, assumeYes, noBackup, patchBoot)
-}

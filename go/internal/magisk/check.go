@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Limplom/nothingctl/internal/adb"
-	nterrors "github.com/Limplom/nothingctl/internal/errors"
 	"github.com/Limplom/nothingctl/internal/models"
 )
 
@@ -179,13 +178,3 @@ func PrintMagiskStatus(ms *models.MagiskStatus) {
 	}
 }
 
-// PrintMagiskStatusForSerial is a convenience wrapper that looks up the status
-// and prints it, returning any error encountered.
-func PrintMagiskStatusForSerial(serial string) error {
-	ms, err := CheckMagisk(serial)
-	if err != nil {
-		return nterrors.MagiskError("checking Magisk status: " + err.Error())
-	}
-	PrintMagiskStatus(ms)
-	return nil
-}

@@ -67,11 +67,6 @@ func GhGetCtx(ctx context.Context, url string) ([]byte, error) {
 	return body, nil
 }
 
-// GhGet is a convenience shim around GhGetCtx that uses context.Background().
-func GhGet(url string) ([]byte, error) {
-	return GhGetCtx(context.Background(), url)
-}
-
 // FetchReleasesCtx fetches up to 50 GitHub releases for owner/repo and returns
 // them as a slice of raw JSON objects. The request is bound to ctx.
 func FetchReleasesCtx(ctx context.Context, owner, repo string) ([]map[string]any, error) {
@@ -93,21 +88,8 @@ func FetchReleases(owner, repo string) ([]map[string]any, error) {
 	return FetchReleasesCtx(context.Background(), owner, repo)
 }
 
-// LatestRelease returns the most recent release from a list, keyed by the
-// 6-digit date segment embedded in Nothing Archive tag names (YYMMDD).
-func LatestRelease(owner, repo string) (map[string]any, error) {
-	releases, err := FetchReleases(owner, repo)
-	if err != nil {
-		return nil, err
-	}
-	if len(releases) == 0 {
-		return nil, nterrors.FirmwareError(fmt.Sprintf("no releases found for %s/%s", owner, repo))
-	}
-	return latestFromList(releases), nil
-}
-
 // latestFromList picks the newest release from a pre-fetched list using the
-// same date-based sort key as the Python version.
+// date-based sort key embedded in Nothing Archive tag names (YYMMDD).
 func latestFromList(releases []map[string]any) map[string]any {
 	best := releases[0]
 	bestKey := "000000"

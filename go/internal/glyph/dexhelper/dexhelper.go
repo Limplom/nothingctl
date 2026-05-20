@@ -69,5 +69,3 @@ func Invoke(serial string, args ...string) (string, string, int) {
 		fmt.Sprintf("su -c '%s'", shellCmd)})
 }
 
-// DevicePath returns the on-device DEX path (exposed for diagnostics).
-func DevicePath() string { return devicePath }

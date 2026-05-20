@@ -117,7 +117,7 @@ func ActionWifiScan(serial, model string) error {
 	sort.Slice(networks, func(i, j int) bool { return networks[i].rssi > networks[j].rssi })
 
 	fmt.Printf("\n  WiFi Scan \u2014 %s\n", model)
-	fmt.Println("  (trigger: cmd wifi start-scan)\n")
+	fmt.Println("  (trigger: cmd wifi start-scan)")
 
 	if len(networks) == 0 {
 		fmt.Println("  No scan results available.")
