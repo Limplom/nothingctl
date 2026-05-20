@@ -63,15 +63,15 @@ func applyGovernorLoop(serial, governor string) int {
 		"for CPU in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do "+
 			"  su -c 'echo %s > $CPU' 2>/dev/null; "+
 			"done", governor)
-	adb.Run([]string{"adb", "-s", serial, "shell", cmd})
+	adb.ShellStr(serial, cmd)
 	return countCPUs(serial)
 }
 
 func applyIOScheduler(serial, scheduler string) []string {
 	var applied []string
 	for _, dev := range deadlineSchedulers {
-		adb.Run([]string{"adb", "-s", serial, "shell",
-			fmt.Sprintf("su -c 'echo %s > /sys/block/%s/queue/scheduler 2>/dev/null'", scheduler, dev)})
+		adb.ShellStr(serial,
+			fmt.Sprintf("su -c 'echo %s > /sys/block/%s/queue/scheduler 2>/dev/null'", scheduler, dev))
 		check, _, code := adb.Run([]string{"adb", "-s", serial, "shell",
 			fmt.Sprintf("su -c 'cat /sys/block/%s/queue/scheduler 2>/dev/null'", dev)})
 		if code == 0 && strings.TrimSpace(check) != "" {

@@ -25,9 +25,7 @@ var hearthstoneGlyphServices = []string{
 }
 
 func pkgInstalled(serial, pkg string) bool {
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		fmt.Sprintf("pm list packages %s", pkg)})
-	return strings.Contains(out, pkg)
+	return strings.Contains(adb.ShellStr(serial, "pm list packages "+pkg), pkg)
 }
 
 func getGlyphSettings(serial string) []struct{ label, key, val string } {
@@ -42,8 +40,7 @@ func getGlyphSettings(serial string) []struct{ label, key, val string } {
 }
 
 func getHearthstoneServices(serial string) []string {
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		"dumpsys activity services com.nothing.hearthstone 2>/dev/null"})
+	out := adb.ShellStr(serial, "dumpsys activity services com.nothing.hearthstone 2>/dev/null")
 	var services []string
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimRight(strings.TrimSpace(line), "\r")
@@ -78,8 +75,7 @@ func getGlyphNotifyInfo(serial string) glyphNotifyInfo {
 	}
 	info.installed = true
 
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-		"dumpsys notification 2>/dev/null | grep -A 12 'com.nothing.glyphnotification'"})
+	out := adb.ShellStr(serial, "dumpsys notification 2>/dev/null | grep -A 12 'com.nothing.glyphnotification'")
 
 	impMap := map[string]string{"1": "MIN", "2": "LOW", "3": "DEFAULT", "4": "HIGH", "5": "MAX"}
 	for _, line := range strings.Split(out, "\n") {

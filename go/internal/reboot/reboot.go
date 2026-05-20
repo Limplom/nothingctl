@@ -28,8 +28,7 @@ var targetMap = map[string]string{
 }
 
 func isMediatek(serial string) bool {
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "getprop ro.board.platform"})
-	return strings.Contains(strings.ToLower(strings.TrimSpace(out)), "mt")
+	return strings.Contains(strings.ToLower(adb.ShellStr(serial, "getprop ro.board.platform")), "mt")
 }
 
 // ActionReboot reboots the device to the specified target.

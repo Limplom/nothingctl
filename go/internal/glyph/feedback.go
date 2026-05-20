@@ -250,6 +250,5 @@ func writeBr(serial, file string, brightness int) {
 	if file == "" {
 		return
 	}
-	adb.Run([]string{"adb", "-s", serial, "shell",
-		fmt.Sprintf("su -c 'echo %d > %s'", brightness, file)})
+	adb.ShellStr(serial, fmt.Sprintf("su -c 'echo %d > %s'", brightness, file))
 }

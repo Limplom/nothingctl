@@ -15,15 +15,13 @@ var srcAddrRe  = regexp.MustCompile(`src (\d+\.\d+\.\d+\.\d+)`)
 
 func getDeviceIP(serial string) string {
 	for _, iface := range []string{"wlan0", "wlan1", "wlan2"} {
-		out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-			fmt.Sprintf("ip -f inet addr show %s 2>/dev/null", iface)})
+		out := adb.ShellStr(serial, fmt.Sprintf("ip -f inet addr show %s 2>/dev/null", iface))
 		if m := inetAddrRe.FindStringSubmatch(out); m != nil {
 			return m[1]
 		}
 	}
 	// Fallback: ip route
-	out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell", "ip route"})
-	if m := srcAddrRe.FindStringSubmatch(out); m != nil {
+	if m := srcAddrRe.FindStringSubmatch(adb.ShellStr(serial, "ip route")); m != nil {
 		return m[1]
 	}
 	return ""

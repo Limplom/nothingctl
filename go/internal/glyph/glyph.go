@@ -55,9 +55,7 @@ var zoneSettingMap = map[string][2]string{
 
 func detectPkg(serial string) string {
 	for _, pkg := range []string{glyphPkgNew, glyphPkgLegacy} {
-		out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-			fmt.Sprintf("pm list packages %s", pkg)})
-		if strings.Contains(out, pkg) {
+		if strings.Contains(adb.ShellStr(serial, "pm list packages "+pkg), pkg) {
 			return pkg
 		}
 	}
@@ -112,8 +110,7 @@ func ActionGlyph(serial, model, enable string) error {
 			if isOn {
 				val = "1"
 			}
-			adb.Run([]string{"adb", "-s", serial, "shell",
-				fmt.Sprintf("settings put %s %s %s", ns, key, val)})
+			adb.ShellStr(serial, fmt.Sprintf("settings put %s %s %s", ns, key, val))
 		} else {
 			var svcCmd string
 			if isOn {
@@ -149,9 +146,7 @@ func ActionGlyph(serial, model, enable string) error {
 	if isLegacy(pkg) {
 		ns := settingLegacy[0]
 		key := settingLegacy[1]
-		out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-			fmt.Sprintf("settings get %s %s", ns, key)})
-		val := strings.TrimSpace(out)
+		val := strings.TrimSpace(adb.ShellStr(serial, fmt.Sprintf("settings get %s %s", ns, key)))
 		stateLabel := map[string]string{"1": "ENABLED", "0": "DISABLED"}
 		s, ok := stateLabel[val]
 		if !ok {
@@ -161,9 +156,7 @@ func ActionGlyph(serial, model, enable string) error {
 	} else {
 		fmt.Println("\n  Glyph feature settings:")
 		for _, gs := range settingsNew {
-			out, _, _ := adb.Run([]string{"adb", "-s", serial, "shell",
-				fmt.Sprintf("settings get %s %s", gs.ns, gs.key)})
-			val := strings.TrimSpace(out)
+			val := strings.TrimSpace(adb.ShellStr(serial, fmt.Sprintf("settings get %s %s", gs.ns, gs.key)))
 			s, ok := map[string]string{"1": "on", "0": "off"}[val]
 			if !ok {
 				s = fmt.Sprintf("unknown (%s)", val)
@@ -236,12 +229,10 @@ func runTestPattern(serial, model string) {
 		}
 		if keyInfo, ok := zoneSettingMap[z.Name]; ok {
 			ns, key := keyInfo[0], keyInfo[1]
-			adb.Run([]string{"adb", "-s", serial, "shell",
-				fmt.Sprintf("settings put %s %s 1", ns, key)})
+			adb.ShellStr(serial, fmt.Sprintf("settings put %s %s 1", ns, key))
 			fmt.Printf("    [ON]  %s (via settings)\n", z.Name)
 			time.Sleep(800 * time.Millisecond)
-			adb.Run([]string{"adb", "-s", serial, "shell",
-				fmt.Sprintf("settings put %s %s 0", ns, key)})
+			adb.ShellStr(serial, fmt.Sprintf("settings put %s %s 0", ns, key))
 			fmt.Printf("    [OFF] %s\n", z.Name)
 			time.Sleep(300 * time.Millisecond)
 			continue
@@ -289,8 +280,7 @@ func runOffPattern(serial, model string) {
 	// Turn off settings-based zones regardless of profile — these are Android-
 	// level features that every Glyph device exposes.
 	for _, gs := range settingsNew {
-		adb.Run([]string{"adb", "-s", serial, "shell",
-			fmt.Sprintf("settings put %s %s 0", gs.ns, gs.key)})
+		adb.ShellStr(serial, fmt.Sprintf("settings put %s %s 0", gs.ns, gs.key))
 		fmt.Printf("  [OFF] %s\n", gs.label)
 	}
 	fmt.Println("[OK] All known Glyph zones set to off.")
