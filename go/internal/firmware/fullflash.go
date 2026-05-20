@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Limplom/nothingctl/internal/adb"
+	"github.com/Limplom/nothingctl/internal/backup"
 	"github.com/Limplom/nothingctl/internal/history"
 	"github.com/Limplom/nothingctl/internal/models"
 )
@@ -261,8 +262,9 @@ func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootT
 // ActionFullFlashCtx is like ActionFullFlash but respects ctx for cancellation
 // of downloads and flash operations. Use signal.NotifyContext to wire Ctrl+C.
 // If assumeYes is true, the interactive confirmation prompt is skipped (for
-// non-interactive use under --yes).
-func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, forceDownload, skipLogical, assumeYes bool, patchBoot BootPatchFunc) error {
+// non-interactive use under --yes). If noBackup is true, the pre-flash
+// partition backup is skipped (otherwise it runs when root is available).
+func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, forceDownload, skipLogical, assumeYes, noBackup bool, patchBoot BootPatchFunc) error {
 	// 1–2. Get model, current firmware, and resolved codename from device.
 	model, currentVersion, codename := readDeviceProps(serial, codename)
 
@@ -287,6 +289,23 @@ func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, f
 	bootImgToFlash, err := patchBootIfNeeded(serial, bootDir, bootTarget, patchBoot)
 	if err != nil {
 		return err
+	}
+
+	// Auto-backup before flash, unless --no-backup. Skips with a warning if no
+	// root is available (dd needs su). patchBoot != nil is a proxy for hasRoot
+	// because the caller only wires the patcher when root was detected.
+	if !noBackup {
+		if patchBoot != nil {
+			fmt.Println("\nAuto-backup before flash (use --no-backup to skip)...")
+			deviceDir := filepath.Join(baseDir, codename)
+			label := "pre_full_flash_" + latestTag
+			if backupErr := backup.ActionBackupWithLabelCtx(ctx, serial, deviceDir, label); backupErr != nil {
+				fmt.Printf("  WARNING: backup failed: %v\n", backupErr)
+			}
+		} else {
+			fmt.Println("\nWARNING: Root not available — skipping auto-backup.")
+			fmt.Println("         Run with --no-backup to suppress this warning.")
+		}
 	}
 
 	if err := flashAllPartitionsCtx(ctx, serial, destDir, bootDir, bootTarget, bootImgToFlash, skipLogical); err != nil {
@@ -319,6 +338,6 @@ func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, f
 // forceDownload: re-download even if cached archives exist
 // skipLogical:   skip the ~4 GB logical partition download/flash
 // patchBoot:     optional function to Magisk-patch the boot image; pass nil to flash stock
-func ActionFullFlash(serial, codename, baseDir string, forceDownload, skipLogical, assumeYes bool, patchBoot BootPatchFunc) error {
-	return ActionFullFlashCtx(context.Background(), serial, codename, baseDir, forceDownload, skipLogical, assumeYes, patchBoot)
+func ActionFullFlash(serial, codename, baseDir string, forceDownload, skipLogical, assumeYes, noBackup bool, patchBoot BootPatchFunc) error {
+	return ActionFullFlashCtx(context.Background(), serial, codename, baseDir, forceDownload, skipLogical, assumeYes, noBackup, patchBoot)
 }

@@ -692,6 +692,7 @@ Requires fastboot access. Device must be connected via USB.`,
 			flagForceDownload,
 			flagSkipLogical,
 			flagYes,
+			flagNoBackup,
 			patchFunc,
 		)
 	},
