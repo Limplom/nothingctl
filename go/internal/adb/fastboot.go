@@ -10,10 +10,22 @@ import (
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
 )
 
-const (
-	fastbootPollInterval = 2 * time.Second
-	fastbootPollTimeout  = 90 * time.Second
-)
+const fastbootPollInterval = 2 * time.Second
+
+// fastbootPollTimeout is the deadline for WaitForFastbootCtx polls. It is
+// generous (90 s) to tolerate slow Windows USB driver re-enumeration after
+// the ADB → Fastboot mode switch — on most systems the device appears in
+// 5–15 s and the loop exits immediately. Callers (or the CLI's
+// --fastboot-timeout flag) can override via SetFastbootPollTimeout.
+var fastbootPollTimeout = 90 * time.Second
+
+// SetFastbootPollTimeout overrides the default fastboot-device wait deadline.
+// Pass a positive integer in seconds. Values <= 0 are ignored.
+func SetFastbootPollTimeout(seconds int) {
+	if seconds > 0 {
+		fastbootPollTimeout = time.Duration(seconds) * time.Second
+	}
+}
 
 var currentSlotRe = regexp.MustCompile(`current-slot:\s*([ab])`)
 

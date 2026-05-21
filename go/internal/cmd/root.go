@@ -2,17 +2,20 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+
+	"github.com/Limplom/nothingctl/internal/adb"
 )
 
 var version string
 
 // Persistent flags shared across all subcommands
 var (
-	flagSerial        string
-	flagBaseDir       string
-	flagForceDownload bool
-	flagNoBackup      bool
-	flagYes           bool
+	flagSerial          string
+	flagBaseDir         string
+	flagForceDownload   bool
+	flagNoBackup        bool
+	flagYes             bool
+	flagFastbootTimeout int
 )
 
 var rootCmd = &cobra.Command{
@@ -22,6 +25,9 @@ var rootCmd = &cobra.Command{
 
 Supports: Nothing Phone (1), (2), (2a), (3a), (3a Lite), CMF Phone (1)`,
 	SilenceUsage: true,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		adb.SetFastbootPollTimeout(flagFastbootTimeout)
+	},
 }
 
 // Execute runs the root command.
@@ -43,6 +49,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&flagForceDownload, "force-download", false, "re-download firmware even if already cached")
 	rootCmd.PersistentFlags().BoolVar(&flagNoBackup, "no-backup", false, "skip automatic backup before flashing")
 	rootCmd.PersistentFlags().BoolVarP(&flagYes, "yes", "y", false, "assume 'yes' to all confirmation prompts (non-interactive use)")
+	rootCmd.PersistentFlags().IntVar(&flagFastbootTimeout, "fastboot-timeout", 0,
+		"override fastboot-device wait deadline in seconds (default 90; raise on slow USB driver setups)")
 
 	rootCmd.AddGroup(
 		&cobra.Group{ID: "firmware", Title: "Firmware & Root"},

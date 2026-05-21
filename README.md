@@ -281,6 +281,7 @@ nothingctl self-update --dry-run  # preview only
 | `--force-download` | Re-download firmware even if already cached |
 | `--no-backup` | Skip automatic backup before flashing |
 | `-y, --yes` | Assume "yes" to all confirmation prompts (non-interactive / CI use) |
+| `--fastboot-timeout` | Override fastboot-device wait deadline in seconds (default 90; raise on slow USB driver setups) |
 
 ---
 
