@@ -12,7 +12,7 @@ import (
 
 const (
 	fastbootPollInterval = 2 * time.Second
-	fastbootPollTimeout  = 40 * time.Second
+	fastbootPollTimeout  = 90 * time.Second
 )
 
 var currentSlotRe = regexp.MustCompile(`current-slot:\s*([ab])`)
