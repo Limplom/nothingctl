@@ -59,7 +59,7 @@ var u0aRe = regexp.MustCompile(`^u0_a(\d+)$`)
 var u0iRe = regexp.MustCompile(`^u0_i(\d+)$`)
 var sysUserRe = regexp.MustCompile(`^(shell|radio|log|nobody|nfc|bluetooth|wifi|camera|media|audioserver|cameraserver|credstore|keystore|statsd|storaged|inet|net_bt|net_bt_admin|net_raw|net_admin)$`)
 
-func isUserApp(user string) bool { return u0aRe.MatchString(user) }
+func isUserApp(user string) bool  { return u0aRe.MatchString(user) }
 func isIsolated(user string) bool { return u0iRe.MatchString(user) }
 func isSystem(user string) bool {
 	return user == "root" || user == "system" || sysUserRe.MatchString(user)

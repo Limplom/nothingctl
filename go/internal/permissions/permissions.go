@@ -54,7 +54,6 @@ func shortPerm(p string) string {
 	return strings.TrimPrefix(p, "android.permission.")
 }
 
-
 func parseGrantedDangerous(output string) []string {
 	var granted []string
 	for _, line := range strings.Split(output, "\n") {

@@ -47,7 +47,6 @@ var knownKeys = []knownKey{
 	{"secure", "nt_glimpse_lockscreen_cleared", "Glimpse lockscreen seen", "new"},
 }
 
-
 // ActionNothingSettings reads or writes Nothing-specific Android settings.
 // key="" means list all. key set + value="" means read. key + value means write.
 func ActionNothingSettings(serial, model, key, value string) error {

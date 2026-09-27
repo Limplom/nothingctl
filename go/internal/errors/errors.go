@@ -22,13 +22,3 @@ func FirmwareError(msg string) error   { return fmt.Errorf("%w: %s", ErrFirmware
 func FlashError(msg string) error      { return fmt.Errorf("%w: %s", ErrFlash, msg) }
 func FastbootTimeout(msg string) error { return fmt.Errorf("%w: %s", ErrFastbootTimeout, msg) }
 func MagiskError(msg string) error     { return fmt.Errorf("%w: %s", ErrMagisk, msg) }
-
-// IsKnownError returns true if err is one of the nothingctl-specific error types.
-// Used by main() to distinguish expected errors from unexpected panics.
-func IsKnownError(err error) bool {
-	return errors.Is(err, ErrAdb) ||
-		errors.Is(err, ErrFirmware) ||
-		errors.Is(err, ErrFlash) ||
-		errors.Is(err, ErrFastbootTimeout) ||
-		errors.Is(err, ErrMagisk)
-}

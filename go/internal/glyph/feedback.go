@@ -38,18 +38,18 @@ const aw210xxBase = "/sys/class/leds/aw210xx_led/"
 var orderedFeedbackZones = map[string][]feedbackZone{
 	// Nothing Phone (1) — confirmed live on Spacewar / A063
 	"spacewar": {
-		{"Camera",      aw210xxBase + "rear_cam_led_br",  0},
-		{"Diagonal",    aw210xxBase + "front_cam_led_br", 0},
-		{"Battery dot", aw210xxBase + "dot_led_br",       0},
-		{"Battery bar", aw210xxBase + "round_leds_br",    0},
-		{"USB",         aw210xxBase + "vline_leds_br",    0},
+		{"Camera", aw210xxBase + "rear_cam_led_br", 0},
+		{"Diagonal", aw210xxBase + "front_cam_led_br", 0},
+		{"Battery dot", aw210xxBase + "dot_led_br", 0},
+		{"Battery bar", aw210xxBase + "round_leds_br", 0},
+		{"USB", aw210xxBase + "vline_leds_br", 0},
 	},
 	"a063": {
-		{"Camera",      aw210xxBase + "rear_cam_led_br",  0},
-		{"Diagonal",    aw210xxBase + "front_cam_led_br", 0},
-		{"Battery dot", aw210xxBase + "dot_led_br",       0},
-		{"Battery bar", aw210xxBase + "round_leds_br",    0},
-		{"USB",         aw210xxBase + "vline_leds_br",    0},
+		{"Camera", aw210xxBase + "rear_cam_led_br", 0},
+		{"Diagonal", aw210xxBase + "front_cam_led_br", 0},
+		{"Battery dot", aw210xxBase + "dot_led_br", 0},
+		{"Battery bar", aw210xxBase + "round_leds_br", 0},
+		{"USB", aw210xxBase + "vline_leds_br", 0},
 	},
 	// Nothing Phone (3a Lite / galaxian) — confirmed on A001T hardware.
 	// Single noth_leds node controls all zones; max brightness is 255.
@@ -85,7 +85,7 @@ type Feedback struct {
 	doneCh     chan struct{}
 	cancelCh   chan struct{}
 	finished   chan struct{} // closed by goroutine when it exits
-	startOnce  sync.Once   // prevents double-launch panic on close(finished)
+	startOnce  sync.Once     // prevents double-launch panic on close(finished)
 	doneOnce   sync.Once
 	cancelOnce sync.Once
 }

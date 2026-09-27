@@ -11,7 +11,7 @@ import (
 )
 
 var inetAddrRe = regexp.MustCompile(`inet (\d+\.\d+\.\d+\.\d+)/`)
-var srcAddrRe  = regexp.MustCompile(`src (\d+\.\d+\.\d+\.\d+)`)
+var srcAddrRe = regexp.MustCompile(`src (\d+\.\d+\.\d+\.\d+)`)
 
 func getDeviceIP(serial string) string {
 	for _, iface := range []string{"wlan0", "wlan1", "wlan2"} {

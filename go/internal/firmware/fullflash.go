@@ -116,16 +116,6 @@ func downloadFlashArchivesCtx(
 	return
 }
 
-// downloadFlashArchives is a convenience shim around downloadFlashArchivesCtx
-// that uses context.Background().
-func downloadFlashArchives(
-	release map[string]any,
-	serial, codename, baseDir, latestTag string,
-	forceDownload, skipLogical bool,
-) (destDir, bootDir string, bootTarget models.BootTarget, err error) {
-	return downloadFlashArchivesCtx(context.Background(), release, serial, codename, baseDir, latestTag, forceDownload, skipLogical)
-}
-
 // patchBootIfNeeded runs the boot patch function if provided, returning the
 // path to the image that should be flashed (patched or stock).
 func patchBootIfNeeded(serial, bootDir string, bootTarget models.BootTarget, patchBoot BootPatchFunc) (imgToFlash string, err error) {
@@ -136,7 +126,7 @@ func patchBootIfNeeded(serial, bootDir string, bootTarget models.BootTarget, pat
 		bootImg := ImgPath(bootDir, bootTargetBase)
 		patchedBootPath, err = patchBoot(serial, bootImg)
 		if err != nil {
-			err = fmt.Errorf("Magisk patch failed: %w", err)
+			err = fmt.Errorf("magisk patch failed: %w", err)
 			return
 		}
 		fmt.Printf("  Patched image: %s\n", filepath.Base(patchedBootPath))
@@ -253,12 +243,6 @@ outerFirmware:
 	return nil
 }
 
-// flashAllPartitions is a convenience shim around flashAllPartitionsCtx that
-// uses context.Background().
-func flashAllPartitions(serial, destDir, bootDir string, bootTarget models.BootTarget, bootImgToFlash string, skipLogical bool) error {
-	return flashAllPartitionsCtx(context.Background(), serial, destDir, bootDir, bootTarget, bootImgToFlash, skipLogical)
-}
-
 // ActionFullFlashCtx is like ActionFullFlash but respects ctx for cancellation
 // of downloads and flash operations. Use signal.NotifyContext to wire Ctrl+C.
 // If assumeYes is true, the interactive confirmation prompt is skipped (for
@@ -327,4 +311,3 @@ func ActionFullFlashCtx(ctx context.Context, serial, codename, baseDir string, f
 	}
 	return nil
 }
-

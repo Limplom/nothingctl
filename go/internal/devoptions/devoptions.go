@@ -56,7 +56,6 @@ var menuOrder = []string{
 	"bg_process_limit",
 }
 
-
 func currentValueForOption(serial, key string) string {
 	opt := options[key]
 	if len(opt.settings) == 0 {

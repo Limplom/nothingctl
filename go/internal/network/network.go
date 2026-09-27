@@ -20,15 +20,15 @@ var dnsAliases = map[string]string{
 	"quad9":      "dns.quad9.net",
 }
 
-var ssidRe      = regexp.MustCompile(`SSID:\s*"([^"]*)"`)
-var bssidRe     = regexp.MustCompile(`BSSID:\s*([0-9a-fA-F:]{17})`)
-var rssiRe      = regexp.MustCompile(`RSSI:\s*(-?\d+)`)
+var ssidRe = regexp.MustCompile(`SSID:\s*"([^"]*)"`)
+var bssidRe = regexp.MustCompile(`BSSID:\s*([0-9a-fA-F:]{17})`)
+var rssiRe = regexp.MustCompile(`RSSI:\s*(-?\d+)`)
 var linkSpeedRe = regexp.MustCompile(`Link speed:\s*(\d+)`)
-var freqRe      = regexp.MustCompile(`Frequency:\s*(\d+)`)
-var ipWifiRe    = regexp.MustCompile(`IP:\s*/([\d.]+)`)
-var inetRe      = regexp.MustCompile(`inet\s+([\d.]+)/`)
-var dns12Re     = regexp.MustCompile(`net\.dns[12]\]:\s*\[([^\]]+)\]`)
-var ndcDNSRe    = regexp.MustCompile(`DNS servers:\s*(.+)`)
+var freqRe = regexp.MustCompile(`Frequency:\s*(\d+)`)
+var ipWifiRe = regexp.MustCompile(`IP:\s*/([\d.]+)`)
+var inetRe = regexp.MustCompile(`inet\s+([\d.]+)/`)
+var dns12Re = regexp.MustCompile(`net\.dns[12]\]:\s*\[([^\]]+)\]`)
+var ndcDNSRe = regexp.MustCompile(`DNS servers:\s*(.+)`)
 
 // ActionNetworkInfo displays network information.
 func ActionNetworkInfo(serial, model string) error {

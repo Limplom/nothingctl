@@ -45,14 +45,14 @@ const (
 
 // Device is one entry in glyph_devices.json.
 type Device struct {
-	Codename     string    `json:"codename"`
-	Model        string    `json:"model"`
-	Aliases      []string  `json:"aliases,omitempty"`
-	Backend      string    `json:"backend"`
-	Sysfs        *SysfsCfg `json:"sysfs,omitempty"`
+	Codename     string     `json:"codename"`
+	Model        string     `json:"model"`
+	Aliases      []string   `json:"aliases,omitempty"`
+	Backend      string     `json:"backend"`
+	Sysfs        *SysfsCfg  `json:"sysfs,omitempty"`
 	Binder       *BinderCfg `json:"binder,omitempty"`
-	Zones        []Zone    `json:"zones"`
-	Capabilities []string  `json:"capabilities"`
+	Zones        []Zone     `json:"zones"`
+	Capabilities []string   `json:"capabilities"`
 }
 
 // SysfsCfg carries the kernel-sysfs tuning for sysfs_* backends.
@@ -114,8 +114,8 @@ var (
 )
 
 type matchEntry struct {
-	key  string // lowercased codename / model / alias
-	dev  *Device
+	key string // lowercased codename / model / alias
+	dev *Device
 }
 
 func load() error {

@@ -110,12 +110,6 @@ func fetchLatestMagiskRelease() (versionCode int, versionStr string, downloadURL
 	return versionCode, versionStr, downloadURL, nil
 }
 
-// FetchLatestMagiskRelease is the exported version for use by install.go.
-func FetchLatestMagiskRelease() (version int, downloadURL string, err error) {
-	vc, _, url, fetchErr := fetchLatestMagiskRelease()
-	return vc, url, fetchErr
-}
-
 // magiskTagToCode converts a GitHub tag like "v30.7" to version code 30700.
 func magiskTagToCode(tag string) int {
 	m := magiskTagRe.FindStringSubmatch(tag)
@@ -177,4 +171,3 @@ func PrintMagiskStatus(ms *models.MagiskStatus) {
 		fmt.Println("\n  Run install-magisk to update Magisk.")
 	}
 }
-

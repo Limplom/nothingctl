@@ -182,25 +182,6 @@ func FastbootReboot(serial string) error {
 	return FastbootRebootCtx(context.Background(), serial)
 }
 
-// FastbootGetVar queries a fastboot variable and returns its value string.
-func FastbootGetVar(serial, variable string) (string, error) {
-	cmdArgs := []string{"fastboot", "-s", serial, "getvar", variable}
-	stdout, stderr, code := Run(cmdArgs)
-	combined := stdout + stderr
-	if code != 0 {
-		return "", nterrors.FlashError(
-			fmt.Sprintf("fastboot getvar %s failed: %s", variable, strings.TrimSpace(stderr)),
-		)
-	}
-	// fastboot prints variable output to stderr; search both buffers.
-	re := regexp.MustCompile(regexp.QuoteMeta(variable) + `:\s*(\S+)`)
-	m := re.FindStringSubmatch(combined)
-	if m != nil {
-		return m[1], nil
-	}
-	return strings.TrimSpace(stdout), nil
-}
-
 // WaitForFastbootdCtx polls until the device enters userspace fastboot (fastbootd),
 // the timeout elapses, or ctx is cancelled.
 // It checks `fastboot getvar is-userspace` for the value "yes".
@@ -261,4 +242,3 @@ func RebootToBootloaderFromFastbootdCtx(ctx context.Context, serial string) erro
 	Run(args)
 	return WaitForFastbootCtx(ctx, serial, 60)
 }
-

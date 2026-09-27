@@ -71,21 +71,6 @@ func glyphServiceRunning(serial, pkg string) bool {
 }
 
 // ---------------------------------------------------------------------------
-// Device profile lookup (thin wrapper around internal/glyph/profile)
-// ---------------------------------------------------------------------------
-
-// getZonesForModel returns the profile's display name and zone list for the
-// given model/codename string. Empty name / nil zones means no profile found.
-// Retained for callers that only need the zone list (e.g. status display).
-func getZonesForModel(model string) (string, []string) {
-	dev, ok := profile.Lookup(model)
-	if !ok {
-		return "", nil
-	}
-	return dev.Model, dev.ZoneNames()
-}
-
-// ---------------------------------------------------------------------------
 // Public actions
 // ---------------------------------------------------------------------------
 

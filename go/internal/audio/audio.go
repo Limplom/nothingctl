@@ -26,9 +26,9 @@ var streams = []stream{
 
 var streamAliases = map[string]int{
 	"voice": 0, "call": 0,
-	"system":       1,
-	"ring":         2,
-	"media":        3, "music": 3,
+	"system": 1,
+	"ring":   2,
+	"media":  3, "music": 3,
 	"alarm":        4,
 	"notification": 5, "notify": 5,
 }

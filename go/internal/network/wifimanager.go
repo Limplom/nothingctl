@@ -11,13 +11,13 @@ import (
 	nterrors "github.com/Limplom/nothingctl/internal/errors"
 )
 
-var macPrefixRe   = regexp.MustCompile(`^[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:`)
+var macPrefixRe = regexp.MustCompile(`^[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:`)
 var rssiLeadingRe = regexp.MustCompile(`^(-?\d+)`)
-var ageFieldRe    = regexp.MustCompile(`^[>\d][\d,.*]*$`)
-var netIDLineRe   = regexp.MustCompile(`^\s*(\d+)\s+(.+?)\s+(any|\S+:\S+:\S+:\S+:\S+:\S+)\s*(.*)?$`)
-var netIDFbRe     = regexp.MustCompile(`^\s*(\d+)\s+(.+)$`)
-var netHeaderRe   = regexp.MustCompile(`(?i)^\s*Network\s+Id`)
-var numericRe     = regexp.MustCompile(`^\d+$`)
+var ageFieldRe = regexp.MustCompile(`^[>\d][\d,.*]*$`)
+var netIDLineRe = regexp.MustCompile(`^\s*(\d+)\s+(.+?)\s+(any|\S+:\S+:\S+:\S+:\S+:\S+)\s*(.*)?$`)
+var netIDFbRe = regexp.MustCompile(`^\s*(\d+)\s+(.+)$`)
+var netHeaderRe = regexp.MustCompile(`(?i)^\s*Network\s+Id`)
+var numericRe = regexp.MustCompile(`^\d+$`)
 
 func bandFromFreq(freq int) string {
 	switch {

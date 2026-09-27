@@ -18,19 +18,19 @@ import (
 // Package-level compiled regexps
 // ---------------------------------------------------------------------------
 
-var versionNameRe    = regexp.MustCompile(`versionName=(\S+)`)
-var versionCodeRe    = regexp.MustCompile(`versionCode=(\d+)`)
-var minSdkRe         = regexp.MustCompile(`minSdk=(\d+)`)
-var targetSdkRe      = regexp.MustCompile(`targetSdk=(\d+)`)
+var versionNameRe = regexp.MustCompile(`versionName=(\S+)`)
+var versionCodeRe = regexp.MustCompile(`versionCode=(\d+)`)
+var minSdkRe = regexp.MustCompile(`minSdk=(\d+)`)
+var targetSdkRe = regexp.MustCompile(`targetSdk=(\d+)`)
 var lastUpdateTimeRe = regexp.MustCompile(`lastUpdateTime=([\d\- :]+)`)
-var timeStampRe      = regexp.MustCompile(`timeStamp=([\d\- :]+)`)
-var firstInstallRe   = regexp.MustCompile(`firstInstallTime=([\d\- :]+)`)
-var codePathRe       = regexp.MustCompile(`codePath=(\S+)`)
-var installerRe      = regexp.MustCompile(`installerPackageName=(\S+)`)
-var userSplitRe      = regexp.MustCompile(`\n\s+User \d+:`)
-var user0Re          = regexp.MustCompile(`(?s)User 0:.*?(?:\n\s+User \d+:|\z)`)
-var apkSizeRe        = regexp.MustCompile(`Size:\s+(\d+)`)
-var enabledRe        = regexp.MustCompile(`(?s)User 0:.*?enabled=(\d+)`)
+var timeStampRe = regexp.MustCompile(`timeStamp=([\d\- :]+)`)
+var firstInstallRe = regexp.MustCompile(`firstInstallTime=([\d\- :]+)`)
+var codePathRe = regexp.MustCompile(`codePath=(\S+)`)
+var installerRe = regexp.MustCompile(`installerPackageName=(\S+)`)
+var userSplitRe = regexp.MustCompile(`\n\s+User \d+:`)
+var user0Re = regexp.MustCompile(`(?s)User 0:.*?(?:\n\s+User \d+:|\z)`)
+var apkSizeRe = regexp.MustCompile(`Size:\s+(\d+)`)
+var enabledRe = regexp.MustCompile(`(?s)User 0:.*?enabled=(\d+)`)
 var pkgVersionCodeRe = regexp.MustCompile(`\s+versionCode:(\d+)$`)
 
 // ---------------------------------------------------------------------------
@@ -40,7 +40,6 @@ var pkgVersionCodeRe = regexp.MustCompile(`\s+versionCode:(\d+)$`)
 func packageExists(serial, pkg string) bool {
 	return strings.Contains(adb.ShellStr(serial, "pm list packages "+pkg), "package:"+pkg)
 }
-
 
 func fmtBytes(size int64) string {
 	units := []string{"B", "KB", "MB", "GB"}

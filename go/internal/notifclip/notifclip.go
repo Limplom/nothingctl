@@ -12,7 +12,6 @@ import (
 
 const maxNotifications = 50
 
-
 func getSDK(serial string) int {
 	raw := adb.ShellStr(serial, "getprop ro.build.version.sdk")
 	var sdk int
@@ -24,11 +23,10 @@ type notification struct {
 	pkg, title, text string
 }
 
-var notifRecordRe    = regexp.MustCompile(`(?m)\bNotificationRecord\b`)
-var pkgRe            = regexp.MustCompile(`\bpkg=([^\s,)]+)`)
-var androidTitleRe   = regexp.MustCompile(`^android\.title=`)
-var androidTextRe    = regexp.MustCompile(`^android\.text=`)
-var spanWrapRe       = regexp.MustCompile(`^(?:String|SpannableString)\s+\((.+)\)$`)
+var pkgRe = regexp.MustCompile(`\bpkg=([^\s,)]+)`)
+var androidTitleRe = regexp.MustCompile(`^android\.title=`)
+var androidTextRe = regexp.MustCompile(`^android\.text=`)
+var spanWrapRe = regexp.MustCompile(`^(?:String|SpannableString)\s+\((.+)\)$`)
 
 func parseNotifications(output string) []notification {
 	var notifications []notification

@@ -58,25 +58,25 @@ var zoneLabels = map[string]string{
 	"mtk-master-charger": "Charger (main)",
 	"mtk-slave-charger":  "Charger (slave)",
 	// Snapdragon (QC)
-	"cpu-0-0-usr":        "CPU cluster 0 (efficiency)",
-	"cpu-0-1-usr":        "CPU cluster 0 (efficiency)",
-	"cpu-1-0-usr":        "CPU cluster 1 (performance)",
-	"cpu-1-1-usr":        "CPU cluster 1 (performance)",
-	"cpu-1-2-usr":        "CPU cluster 1 (prime)",
-	"cpuss-0-usr":        "CPU subsystem",
-	"cpuss-2-usr":        "CPU subsystem",
-	"aoss-0":             "SoC main",
-	"aoss-1":             "SoC secondary",
-	"gpuss-0-usr":        "GPU",
-	"gpuss-1-usr":        "GPU",
-	"skin-therm-usr":     "Skin temperature",
-	"skin-therm":         "Skin temperature",
-	"quiet-therm-usr":    "Quiet (near camera)",
-	"xo-therm-usr":       "Crystal oscillator",
-	"mdm-vq6-usr":        "Modem",
-	"mdm-lte-usr":        "Modem LTE",
-	"pa-therm0-usr":      "Power amp",
-	"pm8350b-bcl-lvl0":   "Battery current limit",
+	"cpu-0-0-usr":      "CPU cluster 0 (efficiency)",
+	"cpu-0-1-usr":      "CPU cluster 0 (efficiency)",
+	"cpu-1-0-usr":      "CPU cluster 1 (performance)",
+	"cpu-1-1-usr":      "CPU cluster 1 (performance)",
+	"cpu-1-2-usr":      "CPU cluster 1 (prime)",
+	"cpuss-0-usr":      "CPU subsystem",
+	"cpuss-2-usr":      "CPU subsystem",
+	"aoss-0":           "SoC main",
+	"aoss-1":           "SoC secondary",
+	"gpuss-0-usr":      "GPU",
+	"gpuss-1-usr":      "GPU",
+	"skin-therm-usr":   "Skin temperature",
+	"skin-therm":       "Skin temperature",
+	"quiet-therm-usr":  "Quiet (near camera)",
+	"xo-therm-usr":     "Crystal oscillator",
+	"mdm-vq6-usr":      "Modem",
+	"mdm-lte-usr":      "Modem LTE",
+	"pa-therm0-usr":    "Power amp",
+	"pm8350b-bcl-lvl0": "Battery current limit",
 }
 
 var priorityZones = map[string]bool{
@@ -98,10 +98,10 @@ type thermalZone struct {
 
 func readThermalZones(serial string) []thermalZone {
 	stdout := adb.ShellStr(serial,
-		"su -c 'for d in /sys/class/thermal/thermal_zone*/; do " +
-			"  t=$(cat $d/type 2>/dev/null); " +
-			"  v=$(cat $d/temp 2>/dev/null); " +
-			"  echo \"$d|$t|$v\"; " +
+		"su -c 'for d in /sys/class/thermal/thermal_zone*/; do "+
+			"  t=$(cat $d/type 2>/dev/null); "+
+			"  v=$(cat $d/temp 2>/dev/null); "+
+			"  echo \"$d|$t|$v\"; "+
 			"done'")
 	var results []thermalZone
 	for _, line := range strings.Split(stdout, "\n") {

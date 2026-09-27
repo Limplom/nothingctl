@@ -82,12 +82,6 @@ func FetchReleasesCtx(ctx context.Context, owner, repo string) ([]map[string]any
 	return releases, nil
 }
 
-// FetchReleases is a convenience shim around FetchReleasesCtx that uses
-// context.Background().
-func FetchReleases(owner, repo string) ([]map[string]any, error) {
-	return FetchReleasesCtx(context.Background(), owner, repo)
-}
-
 // latestFromList picks the newest release from a pre-fetched list using the
 // date-based sort key embedded in Nothing Archive tag names (YYMMDD).
 func latestFromList(releases []map[string]any) map[string]any {

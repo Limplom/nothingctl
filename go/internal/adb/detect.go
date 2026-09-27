@@ -30,11 +30,11 @@ func DetectDevice(serial string) (*models.DeviceInfo, error) {
 	for len(props) < 5 {
 		props = append(props, "")
 	}
-	brandName    := strings.TrimSpace(props[0])
-	modelCode    := strings.TrimSpace(props[1])
+	brandName := strings.TrimSpace(props[0])
+	modelCode := strings.TrimSpace(props[1])
 	manufacturer := strings.TrimSpace(props[2])
-	codename     := strings.TrimSpace(props[3])
-	slot         := strings.TrimSpace(props[4])
+	codename := strings.TrimSpace(props[3])
+	slot := strings.TrimSpace(props[4])
 
 	// Strip the manufacturer prefix so callers can prepend "Nothing " uniformly
 	// without duplication (e.g. "Nothing Phone (1)" → "Phone (1)").

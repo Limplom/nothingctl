@@ -18,12 +18,6 @@ var glyphGlobalKeys = []struct{ key, label string }{
 	{"nt_glyph_interface_debug_enable", "Glyph debug mode"},
 }
 
-var hearthstoneGlyphServices = []string{
-	"GlyphService",
-	"GlyphComposer",
-	"GlyphManagerService",
-}
-
 func pkgInstalled(serial, pkg string) bool {
 	return strings.Contains(adb.ShellStr(serial, "pm list packages "+pkg), pkg)
 }

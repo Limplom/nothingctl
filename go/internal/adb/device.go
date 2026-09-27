@@ -47,16 +47,6 @@ func Run(args []string) (stdout, stderr string, exitCode int) {
 	return RunCtx(context.Background(), args)
 }
 
-// AdbShell runs `adb -s <serial> shell <cmd>` and returns trimmed stdout.
-// Returns an AdbError if the command exits non-zero and stderr is non-empty.
-func AdbShell(serial, cmd string) (string, error) {
-	stdout, stderr, code := Run([]string{"adb", "-s", serial, "shell", cmd})
-	if code != 0 && strings.TrimSpace(stderr) != "" {
-		return "", nterrors.AdbError(fmt.Sprintf("adb shell '%s' failed: %s", cmd, strings.TrimSpace(stderr)))
-	}
-	return strings.TrimSpace(stdout), nil
-}
-
 // ParseShellLines splits raw ADB shell output on "\n", strips trailing "\r",
 // trims surrounding whitespace, and returns only non-empty lines.
 func ParseShellLines(output string) []string {
@@ -274,7 +264,7 @@ func EnsureDevice(serial string) (string, error) {
 // ---------------------------------------------------------------------------
 
 // ShellStr runs a shell command and returns trimmed stdout. Returns "" on
-// non-zero exit. Use AdbShell when you need the error.
+// non-zero exit. Use Run when you need stderr or the exit code.
 func ShellStr(serial, cmd string) string {
 	stdout, _, code := Run([]string{"adb", "-s", serial, "shell", cmd})
 	if code != 0 {

@@ -39,8 +39,8 @@ func newNothLeds(serial string, dev *profile.Device) (Adapter, error) {
 	return &nothLedsAdapter{serial: serial, dev: dev, cfg: dev.Sysfs}, nil
 }
 
-func (a *nothLedsAdapter) Zones() []string                   { return a.dev.ZoneNames() }
-func (a *nothLedsAdapter) Supports(capability string) bool   { return a.dev.Supports(capability) }
+func (a *nothLedsAdapter) Zones() []string                 { return a.dev.ZoneNames() }
+func (a *nothLedsAdapter) Supports(capability string) bool { return a.dev.Supports(capability) }
 
 func (a *nothLedsAdapter) On(zone string, brightness int) error {
 	if _, err := a.resolveZonePath(zone); err != nil {

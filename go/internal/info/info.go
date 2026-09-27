@@ -116,12 +116,12 @@ func imei(serial string) string {
 // ActionInfo prints a comprehensive device dashboard for the connected Nothing phone.
 func ActionInfo(serial string) error {
 	var (
-		model, codename                    string
+		model, codename                     string
 		androidVer, firmware, securityPatch string
-		kernel, soc                        string
-		ram                                string
-		storageData, storageSdcard         string
-		serialNum, bootloader, imeiVal     string
+		kernel, soc                         string
+		ram                                 string
+		storageData, storageSdcard          string
+		serialNum, bootloader, imeiVal      string
 	)
 
 	var wg sync.WaitGroup

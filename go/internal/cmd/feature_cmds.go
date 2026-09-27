@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"strconv"
 	"strings"
 )
 
@@ -22,11 +21,11 @@ var (
 	flagEnable    bool
 
 	// system info flags
-	flagWatch  bool
-	flagTopN   int
-	flagLines  int
-	flagTag    string
-	flagLevel  string
+	flagWatch bool
+	flagTopN  int
+	flagLines int
+	flagTag   string
+	flagLevel string
 
 	// display/audio flags
 	flagProfile  string
@@ -316,15 +315,4 @@ func splitCSV(s string) []string {
 		}
 	}
 	return out
-}
-
-// boolPtr returns a pointer to b. Used for optional bool flags.
-func boolPtr(b bool) *bool { return &b }
-
-// intStr converts an integer flag value to string; returns "" if zero.
-func intStr(n int) string {
-	if n == 0 {
-		return ""
-	}
-	return strconv.Itoa(n)
 }

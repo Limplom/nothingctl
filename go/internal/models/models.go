@@ -15,12 +15,12 @@ const (
 
 // MagiskStatus captures both local and remote (GitHub) Magisk state.
 type MagiskStatus struct {
-	AppInstalled      bool
-	RootActive        bool   // /data/adb/magisk present + su works
-	InstalledVersion  *int   // daemon version code (e.g. 30700)
-	LatestVersion     *int   // from GitHub (e.g. 30700)
-	LatestVersionStr  *string // human-readable (e.g. "30.7")
-	LatestApkURL      *string
+	AppInstalled     bool
+	RootActive       bool    // /data/adb/magisk present + su works
+	InstalledVersion *int    // daemon version code (e.g. 30700)
+	LatestVersion    *int    // from GitHub (e.g. 30700)
+	LatestVersionStr *string // human-readable (e.g. "30.7")
+	LatestApkURL     *string
 }
 
 // IsOutdated returns true when the installed version is known and older than

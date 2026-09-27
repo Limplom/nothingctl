@@ -68,4 +68,3 @@ func Invoke(serial string, args ...string) (string, string, int) {
 	return adb.Run([]string{"adb", "-s", serial, "shell",
 		fmt.Sprintf("su -c '%s'", shellCmd)})
 }
-
