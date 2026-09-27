@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -159,9 +160,21 @@ func installedVersion(m ModuleInfo, installedDirs map[string]bool, versions map[
 
 func fuzzyFindDir(moduleID string, installedDirs map[string]bool) string {
 	key := normalizeModKey(moduleID)
+	if key == "" {
+		// An ID like "_" or "-" normalises to "" and would match every dir.
+		return ""
+	}
 	var sorted []string
 	for d := range installedDirs {
 		sorted = append(sorted, d)
+	}
+	// Deterministic choice: map iteration order is random, so sort, and
+	// prefer an exact normalised match over a substring match.
+	sort.Strings(sorted)
+	for _, d := range sorted {
+		if normalizeModKey(d) == key {
+			return d
+		}
 	}
 	for _, d := range sorted {
 		if strings.Contains(normalizeModKey(d), key) {
