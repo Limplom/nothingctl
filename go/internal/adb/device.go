@@ -76,6 +76,16 @@ func Model(serial string) string {
 // ListDevices returns the ADB serials of all currently attached devices.
 func ListDevices() ([]string, error) {
 	stdout, _, _ := Run([]string{"adb", "devices"})
+	serials := parseAdbDevices(stdout)
+	if len(serials) == 0 {
+		return nil, fmt.Errorf("no ADB devices found")
+	}
+	return serials, nil
+}
+
+// parseAdbDevices returns the serials of all entries in `adb devices` output
+// whose state is exactly "device" (unauthorized/offline/recovery are skipped).
+func parseAdbDevices(stdout string) []string {
 	var serials []string
 	for _, line := range strings.Split(stdout, "\n") {
 		line = strings.TrimRight(line, "\r")
@@ -87,10 +97,7 @@ func ListDevices() ([]string, error) {
 			serials = append(serials, fields[0])
 		}
 	}
-	if len(serials) == 0 {
-		return nil, fmt.Errorf("no ADB devices found")
-	}
-	return serials, nil
+	return serials
 }
 
 // msysEnv returns a copy of the current environment with MSYS_NO_PATHCONV=1
@@ -231,14 +238,7 @@ func CheckAdbRoot(serial string) bool {
 // devices without a specified serial is an error.
 func EnsureDevice(serial string) (string, error) {
 	stdout, _, _ := Run([]string{"adb", "devices", "-l"})
-
-	var lines []string
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimRight(line, "\r")
-		if strings.Contains(line, " device") && !strings.HasPrefix(line, "List") {
-			lines = append(lines, line)
-		}
-	}
+	lines := ensureDeviceLines(stdout)
 
 	if len(lines) == 0 {
 		return "", nterrors.AdbError("no ADB device found. Check cable and USB debugging.")
@@ -257,6 +257,19 @@ func EnsureDevice(serial string) (string, error) {
 	}
 
 	return strings.Fields(lines[0])[0], nil
+}
+
+// ensureDeviceLines returns the lines of `adb devices -l` output that
+// EnsureDevice treats as attached devices.
+func ensureDeviceLines(stdout string) []string {
+	var lines []string
+	for _, line := range strings.Split(stdout, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if strings.Contains(line, " device") && !strings.HasPrefix(line, "List") {
+			lines = append(lines, line)
+		}
+	}
+	return lines
 }
 
 // ---------------------------------------------------------------------------

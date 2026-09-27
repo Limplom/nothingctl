@@ -131,14 +131,28 @@ func WaitForFastbootCtx(ctx context.Context, serial string, timeoutSec int) erro
 // return adbSerial unchanged so the caller hits a normal fastboot error.
 func ResolveFastbootSerial(adbSerial string) string {
 	stdout, _, _ := Run([]string{"fastboot", "devices"})
-	if adbSerial != "" && strings.Contains(stdout, adbSerial) {
-		return adbSerial
-	}
-	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+	return pickFastbootSerial(stdout, adbSerial)
+}
+
+// pickFastbootSerial implements the selection strategy of ResolveFastbootSerial
+// on raw `fastboot devices` output. The ADB serial is only preferred when it
+// appears as an exact serial column, never as a substring of another serial.
+func pickFastbootSerial(devicesOut, adbSerial string) string {
+	var first string
+	for _, line := range strings.Split(strings.TrimSpace(devicesOut), "\n") {
 		fields := strings.Fields(strings.TrimSpace(line))
-		if len(fields) > 0 && fields[0] != "" {
-			return fields[0]
+		if len(fields) == 0 || fields[0] == "" {
+			continue
 		}
+		if adbSerial != "" && fields[0] == adbSerial {
+			return adbSerial
+		}
+		if first == "" {
+			first = fields[0]
+		}
+	}
+	if first != "" {
+		return first
 	}
 	return adbSerial
 }
@@ -148,12 +162,17 @@ func ResolveFastbootSerial(adbSerial string) string {
 func QueryCurrentSlot(serial string) (string, error) {
 	cmdArgs := []string{"fastboot", "-s", serial, "getvar", "current-slot"}
 	stdout, stderr, _ := Run(cmdArgs)
-	combined := stdout + stderr
-	m := currentSlotRe.FindStringSubmatch(combined)
+	return parseCurrentSlot(stdout + stderr), nil
+}
+
+// parseCurrentSlot extracts the active slot suffix ("_a"/"_b") from
+// `fastboot getvar current-slot` output, or "unknown" if absent.
+func parseCurrentSlot(out string) string {
+	m := currentSlotRe.FindStringSubmatch(out)
 	if m == nil {
-		return "unknown", nil
+		return "unknown"
 	}
-	return "_" + m[1], nil
+	return "_" + m[1]
 }
 
 // RebootToBootloaderCtx reboots the device into fastboot mode and waits for it

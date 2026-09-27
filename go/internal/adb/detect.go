@@ -26,29 +26,7 @@ func DetectDevice(serial string) (*models.DeviceInfo, error) {
 		"getprop ro.boot.slot_suffix"
 
 	out, _, _ := Run([]string{"adb", "-s", detectedSerial, "shell", propScript})
-	props := strings.SplitN(strings.ReplaceAll(out, "\r", ""), "\n", 6)
-	for len(props) < 5 {
-		props = append(props, "")
-	}
-	brandName := strings.TrimSpace(props[0])
-	modelCode := strings.TrimSpace(props[1])
-	manufacturer := strings.TrimSpace(props[2])
-	codename := strings.TrimSpace(props[3])
-	slot := strings.TrimSpace(props[4])
-
-	// Strip the manufacturer prefix so callers can prepend "Nothing " uniformly
-	// without duplication (e.g. "Nothing Phone (1)" → "Phone (1)").
-	if strings.HasPrefix(strings.ToLower(brandName), "nothing ") {
-		brandName = brandName[8:]
-	}
-	model := brandName
-	if model == "" {
-		model = modelCode
-	}
-
-	if len(codename) > 0 {
-		codename = strings.ToUpper(codename[:1]) + codename[1:]
-	}
+	model, manufacturer, codename, slot := parseDeviceProps(out)
 
 	if !strings.Contains(strings.ToLower(manufacturer), "nothing") {
 		return nil, nterrors.FirmwareError(
@@ -63,4 +41,34 @@ func DetectDevice(serial string) (*models.DeviceInfo, error) {
 		Codename:    codename,
 		CurrentSlot: slot,
 	}, nil
+}
+
+// parseDeviceProps parses the newline-separated output of DetectDevice's
+// getprop script (brand_device_name, model, manufacturer, device, slot_suffix)
+// into the display model, manufacturer, capitalised codename and slot suffix.
+func parseDeviceProps(out string) (model, manufacturer, codename, slot string) {
+	props := strings.SplitN(strings.ReplaceAll(out, "\r", ""), "\n", 6)
+	for len(props) < 5 {
+		props = append(props, "")
+	}
+	brandName := strings.TrimSpace(props[0])
+	modelCode := strings.TrimSpace(props[1])
+	manufacturer = strings.TrimSpace(props[2])
+	codename = strings.TrimSpace(props[3])
+	slot = strings.TrimSpace(props[4])
+
+	// Strip the manufacturer prefix so callers can prepend "Nothing " uniformly
+	// without duplication (e.g. "Nothing Phone (1)" → "Phone (1)").
+	if strings.HasPrefix(strings.ToLower(brandName), "nothing ") {
+		brandName = brandName[8:]
+	}
+	model = brandName
+	if model == "" {
+		model = modelCode
+	}
+
+	if len(codename) > 0 {
+		codename = strings.ToUpper(codename[:1]) + codename[1:]
+	}
+	return model, manufacturer, codename, slot
 }

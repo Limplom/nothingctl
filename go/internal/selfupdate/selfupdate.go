@@ -27,6 +27,15 @@ func assetName() string {
 	return name
 }
 
+// isUpToDate reports whether no self-update should be performed: the current
+// version equals the latest tag (ignoring a leading "v"), or this is a "dev"
+// build.
+func isUpToDate(currentVersion, latestTag string) bool {
+	cv := strings.TrimPrefix(currentVersion, "v")
+	lv := strings.TrimPrefix(latestTag, "v")
+	return cv == lv || currentVersion == "dev"
+}
+
 // ActionSelfUpdate checks the nothingctl GitHub repo for a newer release.
 // If one is found it downloads the correct binary and replaces the running
 // executable. Pass dryRun=true to only print what would happen.
@@ -49,14 +58,10 @@ func ActionSelfUpdate(currentVersion string, dryRun bool) error {
 		return fmt.Errorf("could not read latest release tag")
 	}
 
-	// Normalize versions for comparison
-	cv := strings.TrimPrefix(currentVersion, "v")
-	lv := strings.TrimPrefix(latestTag, "v")
-
 	fmt.Printf("  Current : %s\n", currentVersion)
 	fmt.Printf("  Latest  : %s\n", latestTag)
 
-	if cv == lv || currentVersion == "dev" {
+	if isUpToDate(currentVersion, latestTag) {
 		fmt.Println("\nAlready on latest version.")
 		return nil
 	}

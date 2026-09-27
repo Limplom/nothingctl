@@ -33,17 +33,7 @@ func ActionVerifyBackup(backupDir string) error {
 	}
 
 	// Parse "hash  filename" lines.
-	stored := make(map[string]string) // filename -> expected hash
-	for _, line := range strings.Split(string(raw), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "  ", 2)
-		if len(parts) == 2 {
-			stored[strings.TrimSpace(parts[1])] = strings.TrimSpace(parts[0])
-		}
-	}
+	stored := parseChecksums(string(raw)) // filename -> expected hash
 
 	fmt.Printf("\nVerifying %d files against checksums...\n", len(stored))
 	fmt.Printf("Backup: %s\n\n", filepath.Base(backupDir))
@@ -123,17 +113,7 @@ func ActionVerifyBackupLive(serial, backupDir string) error {
 		)
 	}
 
-	stored := make(map[string]string)
-	for _, line := range strings.Split(string(raw), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "  ", 2)
-		if len(parts) == 2 {
-			stored[strings.TrimSpace(parts[1])] = strings.TrimSpace(parts[0])
-		}
-	}
+	stored := parseChecksums(string(raw))
 
 	fmt.Printf("\nVerifying %d partitions against live device...\n", len(stored))
 	fmt.Printf("Backup: %s\n\n", filepath.Base(backupDir))
@@ -191,4 +171,22 @@ func ActionVerifyBackupLive(serial, backupDir string) error {
 		fmt.Println("\n[OK] All partitions match the backup.")
 	}
 	return nil
+}
+
+// parseChecksums parses checksums.sha256 content ("<hash>  <filename>" per
+// line, as written by saveChecksums) into a filename -> hash map. Blank and
+// malformed lines are ignored.
+func parseChecksums(raw string) map[string]string {
+	stored := make(map[string]string)
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "  ", 2)
+		if len(parts) == 2 {
+			stored[strings.TrimSpace(parts[1])] = strings.TrimSpace(parts[0])
+		}
+	}
+	return stored
 }
