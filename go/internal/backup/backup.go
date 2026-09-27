@@ -140,6 +140,12 @@ func actionBackupWithLabelCtx(ctx context.Context, serial, baseDir, label string
 		} else {
 			fmt.Println(" FAIL")
 			failed = append(failed, part)
+			// Remove the partial image so it is never pulled, checksummed
+			// and later restored as if it were complete.
+			adb.Run([]string{
+				"adb", "-s", serial, "shell",
+				"su -c 'rm -f " + backupTempDir + "/" + part + ".img'",
+			})
 		}
 	}
 

@@ -208,6 +208,7 @@ func TestActionVerifyBackup(t *testing.T) {
 		checksums   string            // checksums.sha256 content
 		wantResults string
 		wantMarker  string
+		wantErr     bool
 	}{
 		{
 			name:        "all match",
@@ -222,6 +223,7 @@ func TestActionVerifyBackup(t *testing.T) {
 			checksums:   sum("A") + "  boot_a.img\n" + sum("B") + "  boot_b.img\n",
 			wantResults: "Results: 1 match  /  1 changed  /  0 missing",
 			wantMarker:  "Changed files: boot_b",
+			wantErr:     true,
 		},
 		{
 			name:        "one missing",
@@ -229,6 +231,7 @@ func TestActionVerifyBackup(t *testing.T) {
 			checksums:   sum("A") + "  boot_a.img\n" + sum("B") + "  boot_b.img\n",
 			wantResults: "Results: 1 match  /  0 changed  /  1 missing",
 			wantMarker:  "not present in the backup directory",
+			wantErr:     true,
 		},
 		{
 			name:        "mixed",
@@ -236,6 +239,7 @@ func TestActionVerifyBackup(t *testing.T) {
 			checksums:   sum("A") + "  boot_a.img\n" + sum("D") + "  dtbo_a.img\n" + sum("V") + "  vbmeta_a.img\n",
 			wantResults: "Results: 1 match  /  1 changed  /  1 missing",
 			wantMarker:  "Changed files: dtbo_a",
+			wantErr:     true,
 		},
 		{
 			name:        "uppercase hash is a mismatch",
@@ -243,6 +247,7 @@ func TestActionVerifyBackup(t *testing.T) {
 			checksums:   strings.ToUpper(sum("A")) + "  boot_a.img\n",
 			wantResults: "Results: 0 match  /  1 changed  /  0 missing",
 			wantMarker:  "Changed files: boot_a",
+			wantErr:     true,
 		},
 	}
 	for _, c := range cases {
@@ -254,8 +259,8 @@ func TestActionVerifyBackup(t *testing.T) {
 			write(t, dir, "checksums.sha256", c.checksums)
 			var err error
 			out := captureStdout(t, func() { err = ActionVerifyBackup(dir) })
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+			if (err != nil) != c.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, c.wantErr)
 			}
 			if !strings.Contains(out, c.wantResults) {
 				t.Errorf("output missing %q:\n%s", c.wantResults, out)
@@ -279,11 +284,9 @@ func TestActionVerifyBackupErrors(t *testing.T) {
 	}
 }
 
-// TestActionVerifyBackupMismatchExitCode documents that verify-backup returns
-// nil (exit 0) even when files are changed or missing, so scripts cannot
-// detect a corrupted backup from the exit status.
+// TestActionVerifyBackupMismatchExitCode: a changed or missing file must give
+// a non-nil error (non-zero exit) so scripts can detect a corrupted backup.
 func TestActionVerifyBackupMismatchExitCode(t *testing.T) {
-	t.Skip("ambiguous: ActionVerifyBackup returns nil on CHANGED/MISSING; see report")
 	dir := t.TempDir()
 	write(t, dir, "boot_a.img", "tampered")
 	write(t, dir, "checksums.sha256", sum("A")+"  boot_a.img\n")

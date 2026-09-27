@@ -127,7 +127,8 @@ func WaitForFastbootCtx(ctx context.Context, serial string, timeoutSec int) erro
 // other Snapdragon devices) the bootloader reports an SoC-derived hash (e.g.
 // "fd1163d8") while ADB uses the OEM-assigned serial (e.g. "P2126F000626").
 // Strategy: if `fastboot devices` output contains the ADB serial, prefer that;
-// otherwise return the first listed serial; if no fastboot device is present,
+// otherwise return the listed serial if exactly one device is in fastboot; if
+// none or several (ambiguous — never guess which phone to flash) are present,
 // return adbSerial unchanged so the caller hits a normal fastboot error.
 func ResolveFastbootSerial(adbSerial string) string {
 	stdout, _, _ := Run([]string{"fastboot", "devices"})
@@ -138,7 +139,7 @@ func ResolveFastbootSerial(adbSerial string) string {
 // on raw `fastboot devices` output. The ADB serial is only preferred when it
 // appears as an exact serial column, never as a substring of another serial.
 func pickFastbootSerial(devicesOut, adbSerial string) string {
-	var first string
+	var listed []string
 	for _, line := range strings.Split(strings.TrimSpace(devicesOut), "\n") {
 		fields := strings.Fields(strings.TrimSpace(line))
 		if len(fields) == 0 || fields[0] == "" {
@@ -147,12 +148,10 @@ func pickFastbootSerial(devicesOut, adbSerial string) string {
 		if adbSerial != "" && fields[0] == adbSerial {
 			return adbSerial
 		}
-		if first == "" {
-			first = fields[0]
-		}
+		listed = append(listed, fields[0])
 	}
-	if first != "" {
-		return first
+	if len(listed) == 1 {
+		return listed[0]
 	}
 	return adbSerial
 }

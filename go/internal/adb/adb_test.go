@@ -97,6 +97,9 @@ func TestPickFastbootSerial(t *testing.T) {
 		// the list was returned (fastboot -s ABC then waits forever).
 		{"substring of another serial", "ABCD\tfastboot\n", "ABC", "ABCD"},
 		{"serial appears only in state column", "XYZ\tfastboot\n", "fastboot", "XYZ"},
+		// Several phones in fastboot and none is ours: never guess which one
+		// to flash — fall back to the ADB serial so fastboot fails cleanly.
+		{"ambiguous: several devices, no match", "OTHER1\tfastboot\nOTHER2\tfastboot\n", "P2126F000626", "P2126F000626"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

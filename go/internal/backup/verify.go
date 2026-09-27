@@ -88,8 +88,10 @@ func ActionVerifyBackup(backupDir string) error {
 		fmt.Println("\n  Some files are not present in the backup directory.")
 	} else {
 		fmt.Println("\n[OK] All files match the stored checksums.")
+		return nil
 	}
-	return nil
+	// Non-zero exit so scripts never restore from a corrupted backup.
+	return fmt.Errorf("backup verification failed: %d changed, %d missing", changedCount, missingCount)
 }
 
 // ActionVerifyBackupLive compares live device partition hashes against a stored

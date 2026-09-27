@@ -76,12 +76,9 @@ func TestIsUpToDate(t *testing.T) {
 	}
 }
 
-// TestIsUpToDateDevCommitBuild documents a questionable behaviour: local
-// builds use -X main.Version=dev-<commit> (see CLAUDE.md) but only the exact
-// string "dev" is treated as a dev build, so self-update would overwrite a
-// dev-<commit> binary with the latest release.
+// TestIsUpToDateDevCommitBuild: local builds use -X main.Version=dev-<commit>
+// (see CLAUDE.md); self-update must not overwrite them with a release.
 func TestIsUpToDateDevCommitBuild(t *testing.T) {
-	t.Skip("ambiguous: dev-<commit> builds are not excluded from self-update; see report")
 	if !isUpToDate("dev-abc1234", "v1.0.0") {
 		t.Fatal("dev-<commit> build would be replaced by release")
 	}

@@ -28,12 +28,12 @@ func assetName() string {
 }
 
 // isUpToDate reports whether no self-update should be performed: the current
-// version equals the latest tag (ignoring a leading "v"), or this is a "dev"
-// build.
+// version equals the latest tag (ignoring a leading "v"), or this is a local
+// "dev" / "dev-<commit>" build.
 func isUpToDate(currentVersion, latestTag string) bool {
 	cv := strings.TrimPrefix(currentVersion, "v")
 	lv := strings.TrimPrefix(latestTag, "v")
-	return cv == lv || currentVersion == "dev"
+	return cv == lv || currentVersion == "dev" || strings.HasPrefix(currentVersion, "dev-")
 }
 
 // ActionSelfUpdate checks the nothingctl GitHub repo for a newer release.
