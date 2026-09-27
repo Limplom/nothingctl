@@ -57,8 +57,14 @@ func duSorted(serial, path string, topN int, useRoot bool) [][2]interface{} {
 }
 
 func freeSpace(serial, mount string) string {
-	parts := strings.Fields(adb.ShellStr(serial, fmt.Sprintf("df -h %s 2>/dev/null | tail -1", mount)))
-	if len(parts) >= 4 {
+	return parseDfFree(adb.ShellStr(serial, fmt.Sprintf("df -h %s 2>/dev/null | tail -1", mount)))
+}
+
+// parseDfFree formats a single `df -h` data row as "free <avail> of <size>".
+func parseDfFree(row string) string {
+	parts := strings.Fields(row)
+	// A header-only result (mount missing) must not render as "free Avail of Size".
+	if len(parts) >= 4 && parts[0] != "Filesystem" {
 		return fmt.Sprintf("free %s of %s", parts[3], parts[1])
 	}
 	return "unknown"

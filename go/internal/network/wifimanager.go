@@ -23,7 +23,7 @@ func bandFromFreq(freq int) string {
 	switch {
 	case freq < 3000:
 		return "2.4 GHz"
-	case freq < 6000:
+	case freq < 5925: // 6 GHz band (U-NII-5..8) starts at 5925 MHz; ch1 = 5955, ch2 = 5935
 		return "5 GHz"
 	default:
 		return "6 GHz"

@@ -25,7 +25,7 @@ type appDrain struct {
 	count int
 }
 
-var timeUnitRe = regexp.MustCompile(`(\d+)\s*(h|m|s|ms)`)
+var timeUnitRe = regexp.MustCompile(`(\d+)\s*(ms|h|m|s)`) // "ms" first: RE2 alternation is leftmost-first
 
 func parseTimeExpr(expr string) float64 {
 	var total float64

@@ -363,7 +363,12 @@ func getAllPackages(serial string, includeSystem bool) ([]pkgRow, error) {
 	if code != 0 {
 		return nil, nterrors.AdbError(fmt.Sprintf("pm list packages failed: %s", strings.TrimSpace(stderr)))
 	}
+	return parsePackageList(stdout), nil
+}
 
+// parsePackageList parses `pm list packages -f --show-versioncode` output
+// ("package:<apk>=<pkg> versionCode:<n>") into rows sorted by package name.
+func parsePackageList(stdout string) []pkgRow {
 	var rows []pkgRow
 	for _, line := range adb.ParseShellLines(stdout) {
 		if !strings.HasPrefix(line, "package:") {
@@ -388,7 +393,7 @@ func getAllPackages(serial string, includeSystem bool) ([]pkgRow, error) {
 
 	// sort by package name
 	sort.Slice(rows, func(i, j int) bool { return rows[i].Package < rows[j].Package })
-	return rows, nil
+	return rows
 }
 
 // ActionPackageList lists installed packages in text, csv, or json format.

@@ -89,12 +89,14 @@ func parseNotifications(output string) []notification {
 
 // splitOnBoundary splits text into sections before each occurrence of boundary word.
 func splitOnBoundary(text, boundary string) []string {
+	if text == "" {
+		return nil
+	}
 	var blocks []string
 	start := 0
-	for i := 0; i < len(text); i++ {
+	for i := 0; i < len(text); {
 		idx := strings.Index(text[i:], boundary)
 		if idx == -1 {
-			blocks = append(blocks, text[start:])
 			break
 		}
 		absIdx := i + idx
@@ -102,11 +104,11 @@ func splitOnBoundary(text, boundary string) []string {
 			blocks = append(blocks, text[start:absIdx])
 		}
 		start = absIdx
-		i = absIdx
+		i = absIdx + 1
 	}
-	if len(blocks) == 0 && start < len(text) {
-		blocks = append(blocks, text[start:])
-	}
+	// Always emit the tail — previously it was dropped when the last boundary
+	// sat at the very end of text and the loop ran out before appending it.
+	blocks = append(blocks, text[start:])
 	return blocks
 }
 

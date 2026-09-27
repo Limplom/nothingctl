@@ -97,14 +97,7 @@ func ActionNetworkInfo(serial, model string) error {
 	if freq != "" {
 		var f int
 		fmt.Sscanf(freq, "%d", &f)
-		switch {
-		case f < 3000:
-			freqBand = "2.4 GHz"
-		case f < 6000:
-			freqBand = "5 GHz"
-		default:
-			freqBand = "6 GHz"
-		}
+		freqBand = bandFromFreq(f)
 	}
 
 	// DNS servers

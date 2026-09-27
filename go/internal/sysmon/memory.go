@@ -33,7 +33,11 @@ func mib(kb int64) string {
 var memKeyRe = regexp.MustCompile(`^(\w[\w()]+):\s+(\d+)`)
 
 func readProcMeminfo(serial string) map[string]int64 {
-	stdout := adb.ShellStr(serial, "cat /proc/meminfo")
+	return parseProcMeminfo(adb.ShellStr(serial, "cat /proc/meminfo"))
+}
+
+// parseProcMeminfo parses /proc/meminfo output into a key → kB map.
+func parseProcMeminfo(stdout string) map[string]int64 {
 	result := make(map[string]int64)
 	for _, line := range strings.Split(stdout, "\n") {
 		line = strings.TrimRight(line, "\r")

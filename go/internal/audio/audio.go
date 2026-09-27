@@ -70,13 +70,23 @@ var volRe = regexp.MustCompile(`volume is\s+(\d+)\s+in range\s+\[(\d+)\.\.(\d+)\
 
 func getStreamVolume(serial string, streamID int) (int, int, error) {
 	output := adb.ShellStr(serial, fmt.Sprintf("cmd media_session volume --stream %d --get", streamID))
-	if m := volRe.FindStringSubmatch(output); m != nil {
-		var cur, max int
-		fmt.Sscanf(m[1], "%d", &cur)
-		fmt.Sscanf(m[3], "%d", &max)
+	if cur, max, ok := parseStreamVolume(output); ok {
 		return cur, max, nil
 	}
 	return 0, 0, nterrors.AdbError(fmt.Sprintf("Could not parse volume output for stream %d: %s", streamID, output))
+}
+
+// parseStreamVolume extracts (current, max) from `cmd media_session volume --get`
+// output such as "volume is 7 in range [0..15]".
+func parseStreamVolume(output string) (int, int, bool) {
+	m := volRe.FindStringSubmatch(output)
+	if m == nil {
+		return 0, 0, false
+	}
+	var cur, max int
+	fmt.Sscanf(m[1], "%d", &cur)
+	fmt.Sscanf(m[3], "%d", &max)
+	return cur, max, true
 }
 
 func bar(current, maximum int) string {

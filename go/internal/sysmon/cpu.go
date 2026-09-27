@@ -33,7 +33,11 @@ func readCPUFreqs(serial string) []coreInfo {
 		"  onl=$(cat $p/online 2>/dev/null || echo 1); " +
 		"  echo \"$i|$cur|$mx|$onl\"; " +
 		"done"
-	stdout := adb.ShellStr(serial, script)
+	return parseCPUFreqs(adb.ShellStr(serial, script))
+}
+
+// parseCPUFreqs parses "core|cur_khz|max_khz|online" lines from readCPUFreqs.
+func parseCPUFreqs(stdout string) []coreInfo {
 	var cores []coreInfo
 	for _, line := range strings.Split(stdout, "\n") {
 		line = strings.TrimRight(line, "\r")
@@ -97,7 +101,12 @@ type procInfo struct {
 var headerRe = regexp.MustCompile(`^\s*PID\s+USER`)
 
 func readTopProcesses(serial string, topN int) []procInfo {
-	stdout := adb.ShellStr(serial, "top -b -n 1 -o PID,USER,%CPU,%MEM,ARGS 2>/dev/null")
+	return parseTopProcesses(adb.ShellStr(serial, "top -b -n 1 -o PID,USER,%CPU,%MEM,ARGS 2>/dev/null"), topN)
+}
+
+// parseTopProcesses parses `top -b -o PID,USER,%CPU,%MEM,ARGS` output and
+// returns the topN entries sorted by CPU usage descending.
+func parseTopProcesses(stdout string, topN int) []procInfo {
 	var procs []procInfo
 	headerSeen := false
 	for _, line := range strings.Split(stdout, "\n") {

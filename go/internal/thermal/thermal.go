@@ -103,6 +103,12 @@ func readThermalZones(serial string) []thermalZone {
 			"  v=$(cat $d/temp 2>/dev/null); "+
 			"  echo \"$d|$t|$v\"; "+
 			"done'")
+	return parseThermalZones(stdout)
+}
+
+// parseThermalZones parses "path|type|milli°C" lines as emitted by
+// readThermalZones' shell loop. Invalid or sentinel readings are dropped.
+func parseThermalZones(stdout string) []thermalZone {
 	var results []thermalZone
 	for _, line := range strings.Split(stdout, "\n") {
 		line = strings.TrimRight(line, "\r")

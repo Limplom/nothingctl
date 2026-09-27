@@ -322,7 +322,7 @@ var modeMap = map[string]string{
 
 var latLonRe = regexp.MustCompile(`([-\d.]+),([-\d.]+)`)
 var accRe = regexp.MustCompile(`(?i)acc(?:uracy)?[=\s]+([\d.]+)`)
-var etRe = regexp.MustCompile(`(?i)et=(\S+)`)
+var etRe = regexp.MustCompile(`(?i)et=([^\s\]]+)`) // exclude "]" when et= ends Location[...]
 var providerLineRe = regexp.MustCompile(`(?i)^\s*(gps|network|passive|fused)\s*:\s*(.*)`)
 var providerStatusRe = regexp.MustCompile(`(?i)(gps|network|passive)\s+provider[^:]*?(?:\[|:)?\s*(enabled|disabled)`)
 var fineLocRe = regexp.MustCompile(`(?i)(?:Package\s+)?([a-z][a-z0-9_.]+)\s+uid=`)
