@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func write(t *testing.T, dir, name, content string) string {
@@ -182,22 +183,90 @@ func TestListBackupsMissingRoot(t *testing.T) {
 	}
 }
 
-// TestListBackupsLabelledOrdering documents that labelled auto-backups
-// (backup_pre_flash_<tag>, backup_pre_ota_<tag>, backup_pre_patch_flash) sort
-// by name, not by time: they always appear before timestamped backups and
-// PickBackup's default [0] may therefore be an old labelled backup.
+// TestListBackupsLabelledOrdering: labelled auto-backups (backup_pre_flash_<tag>,
+// backup_pre_patch_flash, …) have no timestamp in their name and must be
+// ordered by when they were taken, not sort ahead of newer timestamped ones —
+// PickBackup's default [0] has to be the newest backup.
 func TestListBackupsLabelledOrdering(t *testing.T) {
-	t.Skip("ambiguous: ListBackups claims newest-first but labelled backups sort lexically; see report")
 	base := t.TempDir()
 	root := filepath.Join(base, "Backups", "partition-backup")
-	for _, d := range []string{"backup_pre_flash_Spacewar_V2.0-240101-0000", "backup_20260301_080000"} {
+	local := func(s string) time.Time {
+		tm, err := time.ParseInLocation("2006-01-02 15:04", s, time.Local)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tm
+	}
+	// Labelled backups: date comes from checksums.sha256 (written last) or,
+	// without it, from the directory mtime.
+	labelled := []struct {
+		name     string
+		when     time.Time
+		checksum bool
+	}{
+		{"backup_pre_flash_Spacewar_V2.0-240101-0000", local("2025-06-01 10:00"), true},
+		{"backup_pre_patch_flash", local("2026-05-01 09:00"), true},
+		{"backup_pre_ota_Spacewar_V3.0-250101-0000", local("2026-02-01 12:00"), false},
+	}
+	for _, l := range labelled {
+		dir := filepath.Join(root, l.name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if l.checksum {
+			p := write(t, dir, "checksums.sha256", "")
+			if err := os.Chtimes(p, l.when, l.when); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.Chtimes(dir, l.when, l.when); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, d := range []string{"backup_20260301_080000", "backup_20250101_120000"} {
 		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	got, _ := ListBackups(base)
-	if filepath.Base(got[0]) != "backup_20260301_080000" {
-		t.Fatalf("newest backup not first: %v", got)
+
+	got, err := ListBackups(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, g := range got {
+		names = append(names, filepath.Base(g))
+	}
+	want := []string{
+		"backup_pre_patch_flash",                     // 2026-05-01
+		"backup_20260301_080000",                     // 2026-03-01
+		"backup_pre_ota_Spacewar_V3.0-250101-0000",   // 2026-02-01 (dir mtime)
+		"backup_pre_flash_Spacewar_V2.0-240101-0000", // 2025-06-01
+		"backup_20250101_120000",                     // 2025-01-01
+	}
+	if !reflect.DeepEqual(names, want) {
+		t.Errorf("got  %v\nwant %v", names, want)
+	}
+}
+
+func TestBackupTime(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "backup_20260301_080000")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// The name wins over file times for timestamped backups.
+	old := time.Date(2020, 1, 1, 0, 0, 0, 0, time.Local)
+	p := write(t, dir, "checksums.sha256", "")
+	if err := os.Chtimes(p, old, old); err != nil {
+		t.Fatal(err)
+	}
+	want := time.Date(2026, 3, 1, 8, 0, 0, 0, time.Local)
+	if got := backupTime(dir); !got.Equal(want) {
+		t.Errorf("backupTime = %v, want %v", got, want)
+	}
+	// Missing directory: zero time, sorts last.
+	if got := backupTime(filepath.Join(t.TempDir(), "backup_gone")); !got.IsZero() {
+		t.Errorf("missing dir: got %v, want zero time", got)
 	}
 }
 

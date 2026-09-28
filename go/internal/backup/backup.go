@@ -330,8 +330,27 @@ func ActionRestore(serial, backupDir string, dryRun bool, partitions []string) e
 	return nil
 }
 
+// backupTime returns when the backup in dir was taken. Timestamped backups
+// (backup_YYYYMMDD_HHMMSS) use the time in their name; labelled auto-backups
+// (backup_pre_flash_<tag>, backup_pre_patch_flash, …) carry no date, so the
+// modification time of checksums.sha256 — written last, when the backup
+// completed — is used, falling back to the directory's own mtime.
+func backupTime(dir string) time.Time {
+	name := strings.TrimPrefix(filepath.Base(dir), "backup_")
+	if t, err := time.ParseInLocation("20060102_150405", name, time.Local); err == nil {
+		return t
+	}
+	if info, err := os.Stat(filepath.Join(dir, "checksums.sha256")); err == nil {
+		return info.ModTime()
+	}
+	if info, err := os.Stat(dir); err == nil {
+		return info.ModTime()
+	}
+	return time.Time{}
+}
+
 // ListBackups returns all backup_* directories under baseDir/Backups/partition-backup/,
-// sorted newest-first.
+// sorted newest-first by backup date (see backupTime), then by name.
 func ListBackups(baseDir string) ([]string, error) {
 	backupRoot := filepath.Join(baseDir, "Backups", "partition-backup")
 	entries, err := os.ReadDir(backupRoot)
@@ -347,8 +366,17 @@ func ListBackups(baseDir string) ([]string, error) {
 			dirs = append(dirs, filepath.Join(backupRoot, e.Name()))
 		}
 	}
-	// Sort descending (newest first) by name — timestamps in names ensure correctness.
-	sort.Slice(dirs, func(i, j int) bool {
+	// Sort newest first by date: labelled backups have no timestamp in their
+	// name, so sorting by name alone put them ahead of newer timestamped ones.
+	times := make(map[string]time.Time, len(dirs))
+	for _, d := range dirs {
+		times[d] = backupTime(d)
+	}
+	sort.SliceStable(dirs, func(i, j int) bool {
+		ti, tj := times[dirs[i]], times[dirs[j]]
+		if !ti.Equal(tj) {
+			return ti.After(tj)
+		}
 		return dirs[i] > dirs[j]
 	})
 	return dirs, nil
@@ -383,8 +411,9 @@ func PickBackup(baseDir, restoreDir string) (string, error) {
 				}
 			}
 		}
-		fmt.Printf("  [%d] %s  (%d partitions, %.0f MB)\n",
-			i, filepath.Base(b), imgCount, float64(totalBytes)/1024/1024)
+		fmt.Printf("  [%d] %s  %s  (%d partitions, %.0f MB)\n",
+			i, backupTime(b).Format("2006-01-02 15:04"), filepath.Base(b),
+			imgCount, float64(totalBytes)/1024/1024)
 	}
 
 	fi, err := os.Stdin.Stat()
